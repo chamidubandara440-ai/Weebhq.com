@@ -75,7 +75,7 @@ export default function ClientAnimeLoader({ id }) {
         <a href="#">News</a>
       </div>
 
-      <div style={{display: "flex", flexDirection: "column", '@media(minWidth: 768px)': {flexDirection: "row"}}}>
+      <div className="anime-detail-container">
         {/* Left Sidebar */}
         <div className="anime-left-col">
           <img src={img} alt="Poster" className="anime-poster" />
@@ -124,9 +124,7 @@ export default function ClientAnimeLoader({ id }) {
           </div>
           
           <h2>Synopsis</h2>
-          <p className="synopsis-text" style={{whiteSpace: 'pre-wrap'}}>
-            {synopsis}
-          </p>
+          <div className="synopsis-text" style={{whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{ __html: synopsis }} />
 
         </div>
       </div>
