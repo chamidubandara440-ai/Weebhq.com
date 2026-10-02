@@ -1,14 +1,5 @@
 {
-  "reviews": [
-    {
-      "id": 1,
-      "title": "Welcome to WeebHQ",
-      "user": "System",
-      "score": 10,
-      "excerpt": "This is an automated review placeholder. New reviews will appear here soon.",
-      "img": "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
-    }
-  ],
+  "reviews": [],
   "news": [
     {
       "id": 1790928727446,
@@ -16,33 +7,8 @@
       "date": "Oct 2, 2026",
       "snippet": "**BREAKING:** *One Piece* enters its most explosive era yet! Luffy’s Gear 5 clashes with the World Government on Egghead Island as shocking Void Century secrets finally surface this weekend.",
       "img": "https://media.kitsu.app/anime/poster_images/12/large.jpg"
-    },
-    {
-      "id": 1,
-      "title": "AI Automation System Activated",
-      "date": "Oct 2, 2026",
-      "snippet": "WeebHQ is now powered by AI. Stay tuned for the latest automatically generated anime news.",
-      "img": "https://cdn.myanimelist.net/images/anime/1125/138210l.jpg"
     }
   ],
-  "articles": [
-    {
-      "id": 1,
-      "title": "The Future of Anime Automation",
-      "date": "Oct 2, 2026",
-      "snippet": "Discover how AI is shaping the way we read about anime.",
-      "img": "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg"
-    }
-  ],
-  "recommendations": [
-    {
-      "id": 1,
-      "user": "System",
-      "sourceTitle": "Frieren",
-      "sourceImg": "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
-      "recTitle": "Mushoku Tensei",
-      "recImg": "https://cdn.myanimelist.net/images/anime/1162/142410l.jpg",
-      "text": "Placeholder recommendation until the AI generates real ones."
-    }
-  ]
+  "articles": [],
+  "recommendations": []
 }
