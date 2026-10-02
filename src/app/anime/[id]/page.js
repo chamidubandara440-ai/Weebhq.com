@@ -1,13 +1,21 @@
 import Link from 'next/link';
 
-const fetchKitsu = async (endpoint) => {
-  try {
-    const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { next: { revalidate: 3600 } });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    return null;
+const fetchKitsu = async (endpoint, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { next: { revalidate: 3600 } });
+      if (res.ok) return await res.json();
+      if (res.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
+        continue;
+      }
+      return null;
+    } catch (e) {
+      if (i === retries - 1) return null;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
+  return null;
 };
 
 export async function generateStaticParams() {
