@@ -8,7 +8,9 @@ export function generateStaticParams() {
     dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
   } catch(e) {}
   
-  return dbData.news.map((n) => ({ id: n.id.toString() }));
+  let ids = dbData.news.map((n) => ({ id: n.id.toString() }));
+  if (ids.length === 0) ids.push({ id: '1' });
+  return ids;
 }
 
 export default async function NewsDetail({ params }) {
