@@ -1,50 +1,33 @@
-import Link from 'next/link';
-import ClientAnimeLoader from './ClientAnimeLoader';
+'use client';
+import { useEffect, useState } from 'react';
 
-const fetchKitsu = async (endpoint, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
-      if (res.status === 429) {
-        console.warn(`[fetchKitsu] 429 Rate Limit for ${endpoint}, retrying... (${i + 1}/${retries})`);
-        await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
-        continue;
-      }
-      console.error(`[fetchKitsu] Error ${res.status} for ${endpoint}`);
-      return null;
-    } catch (e) {
-      console.error(`[fetchKitsu] Exception for ${endpoint}:`, e);
-      if (i === retries - 1) return null;
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-  return null;
-};
+export default function ClientAnimeLoader({ id }) {
+  const [anime, setAnime] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-export async function generateStaticParams() {
-  const topAiringRes = await fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5');
-  const topUpcomingRes = await fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5');
-  const seasonalRes = await fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6');
+  useEffect(() => {
+    fetch(`https://kitsu.io/api/edge/anime/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.json();
+      })
+      .then(data => {
+        if (data && data.data) {
+          setAnime(data.data);
+        } else {
+          setError(true);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, [id]);
 
-  const ids = [];
-  if (topAiringRes?.data) topAiringRes.data.forEach(a => ids.push(a.id));
-  if (topUpcomingRes?.data) topUpcomingRes.data.forEach(a => ids.push(a.id));
-  if (seasonalRes?.data) seasonalRes.data.forEach(a => ids.push(a.id));
-
-  ids.push('1'); // Fallback
-
-  return [...new Set(ids)].map((id) => ({ id: id.toString() }));
-}
-
-export default async function AnimeDetail({ params }) {
-  const { id } = await params;
-  
-  const animeRes = await fetchKitsu(`/anime/${id}`);
-  const anime = animeRes?.data;
-
-  if (!anime) return <ClientAnimeLoader id={id} />;
+  if (loading) return <div className="main-wrapper" style={{padding: '20px'}}>Loading Anime Data...</div>;
+  if (error || !anime) return <div className="main-wrapper" style={{padding: '20px'}}>Anime not found</div>;
 
   const title = anime.attributes.canonicalTitle;
   const enTitle = anime.attributes.titles.en || anime.attributes.titles.en_jp || title;
