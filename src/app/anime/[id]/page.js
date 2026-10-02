@@ -3,14 +3,18 @@ import Link from 'next/link';
 const fetchKitsu = async (endpoint, retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { cache: 'no-store' });
+      const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
+      const res = await fetch(url);
       if (res.ok) return await res.json();
       if (res.status === 429) {
+        console.warn(`[fetchKitsu] 429 Rate Limit for ${endpoint}, retrying... (${i + 1}/${retries})`);
         await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
         continue;
       }
+      console.error(`[fetchKitsu] Error ${res.status} for ${endpoint}`);
       return null;
     } catch (e) {
+      console.error(`[fetchKitsu] Exception for ${endpoint}:`, e);
       if (i === retries - 1) return null;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
