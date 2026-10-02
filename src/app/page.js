@@ -1,21 +1,29 @@
 import fs from 'fs';
 import path from 'path';
 
-const fetchKitsu = async (endpoint) => {
-  try {
-    const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    return null;
+const fetchJikan = async (endpoint, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const url = `https://api.jikan.moe/v4${endpoint}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+      if (res.status === 429) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
+        continue;
+      }
+      return null;
+    } catch (e) {
+      if (i === retries - 1) return null;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
+  return null;
 };
 
 export default async function Home() {
-  const topAiringRes = await fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5');
-  const topUpcomingRes = await fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5');
-  const seasonalRes = await fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6');
+  const topAiringRes = await fetchJikan('/top/anime?filter=airing&page=1&limit=5');
+  const topUpcomingRes = await fetchJikan('/top/anime?filter=upcoming&page=1&limit=5');
+  const seasonalRes = await fetchJikan('/seasons/now?page=1&limit=6');
 
   const fallbackTopAiring = [
     { rank: 1, title: "Frieren: Beyond Journey's End", score: "9.38", img: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", id: 1 },
@@ -44,29 +52,29 @@ export default async function Home() {
 
   const topAiring = topAiringRes?.data ? topAiringRes.data.map((anime, index) => ({
     rank: index + 1,
-    title: anime.attributes.canonicalTitle,
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    img: anime.attributes.posterImage.large,
-    id: anime.id
+    title: anime.title,
+    score: anime.score ? anime.score.toFixed(2) : "N/A",
+    img: anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || "https://via.placeholder.com/225x320?text=No+Image",
+    id: anime.mal_id
   })) : fallbackTopAiring;
 
   const topUpcoming = topUpcomingRes?.data ? topUpcomingRes.data.map((anime, index) => ({
     rank: index + 1,
-    title: anime.attributes.canonicalTitle,
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    img: anime.attributes.posterImage.large,
-    id: anime.id
+    title: anime.title,
+    score: anime.score ? anime.score.toFixed(2) : "N/A",
+    img: anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || "https://via.placeholder.com/225x320?text=No+Image",
+    id: anime.mal_id
   })) : fallbackTopUpcoming;
 
   const seasonal = seasonalRes?.data ? seasonalRes.data.map((anime) => ({
-    id: anime.id,
-    title: anime.attributes.canonicalTitle,
-    img: anime.attributes.posterImage.large,
-    type: anime.attributes.subtype || "TV",
-    eps: anime.attributes.episodeCount ? `${anime.attributes.episodeCount} eps` : "? eps",
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    members: anime.attributes.userCount ? (anime.attributes.userCount / 1000).toFixed(0) + 'K' : '0K',
-    snippet: anime.attributes.synopsis ? anime.attributes.synopsis.substring(0, 100) + '...' : ''
+    id: anime.mal_id,
+    title: anime.title,
+    img: anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || "https://via.placeholder.com/225x320?text=No+Image",
+    type: anime.type || "TV",
+    eps: anime.episodes ? `${anime.episodes} eps` : "? eps",
+    score: anime.score ? anime.score.toFixed(2) : "N/A",
+    members: anime.members ? (anime.members / 1000).toFixed(0) + 'K' : '0K',
+    snippet: anime.synopsis ? anime.synopsis.substring(0, 100) + '...' : ''
   })) : fallbackSeasonal;
 
   // Read mock/AI generated data from local DB
