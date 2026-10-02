@@ -3,7 +3,7 @@ import path from 'path';
 
 const fetchKitsu = async (endpoint) => {
   try {
-    const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { next: { revalidate: 3600 } });
+    const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { cache: 'no-store' });
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {

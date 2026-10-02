@@ -3,7 +3,7 @@ import Link from 'next/link';
 const fetchKitsu = async (endpoint, retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { next: { revalidate: 3600 } });
+      const res = await fetch(`https://kitsu.io/api/edge${endpoint}`, { cache: 'no-store' });
       if (res.ok) return await res.json();
       if (res.status === 429) {
         await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
