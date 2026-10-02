@@ -14,18 +14,40 @@ async function runAutomation() {
     return;
   }
 
-  // 1. Fetch Latest News from Kitsu API
-  console.log("Fetching recent anime from Kitsu...");
-  const res = await fetch('https://kitsu.io/api/edge/anime?filter[status]=current&sort=-userCount&page[limit]=1');
-  const responseData = await res.json();
-  const topAnime = responseData.data[0];
+  // 1. Fetch Trending Anime from AniList API
+  console.log("Fetching trending anime from AniList...");
+  const query = `
+  query {
+    Page(page: 1, perPage: 10) {
+      media(type: ANIME, status: RELEASING, sort: TRENDING_DESC) {
+        id
+        title { romaji english }
+        coverImage { large }
+      }
+    }
+  }`;
 
-  console.log(`Writing article about: ${topAnime.attributes.canonicalTitle}`);
+  const res = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  
+  const responseData = await res.json();
+  const trendingAnimeList = responseData.data.Page.media;
+  
+  // Pick a random anime from the top 10 trending
+  const randomIndex = Math.floor(Math.random() * trendingAnimeList.length);
+  const topAnime = trendingAnimeList[randomIndex];
+  const animeTitle = topAnime.title.english || topAnime.title.romaji;
+  const animeImg = topAnime.coverImage.large;
+
+  console.log(`Writing article about: ${animeTitle}`);
 
   // 2. Generate News Article with Gemini
   const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
   const prompt = `You are a breaking news reporter for an anime website. 
-Write a news update about the anime '${topAnime.attributes.canonicalTitle}'.
+Write a news update about the anime '${animeTitle}'.
 Return ONLY a valid JSON object with exactly two keys:
 1. "snippet": A short 15-word summary for the homepage.
 2. "fullText": A detailed 3-paragraph news article. Use HTML tags (<p>, <strong>, etc) for formatting. Do not include the title in the fullText.`;
@@ -57,11 +79,11 @@ Return ONLY a valid JSON object with exactly two keys:
   
   const newArticle = {
     id: Date.now(),
-    title: `Trending Now: ${topAnime.attributes.canonicalTitle}`,
+    title: `Trending Now: ${animeTitle}`,
     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     snippet: aiData.snippet.trim(),
     fullText: aiData.fullText.trim(),
-    img: topAnime.attributes.posterImage.large
+    img: animeImg
   };
 
   dbData.news.unshift(newArticle); // Add to top
