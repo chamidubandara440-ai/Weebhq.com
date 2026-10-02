@@ -1,21 +1,21 @@
 import Link from 'next/link';
 import ClientAnimeLoader from './ClientAnimeLoader';
 
-const fetchJikan = async (endpoint, retries = 3) => {
+const fetchKitsu = async (endpoint, retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
-      const url = `https://api.jikan.moe/v4${endpoint}`;
+      const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
       const res = await fetch(url);
       if (res.ok) return await res.json();
       if (res.status === 429) {
-        console.warn(`[fetchJikan] 429 Rate Limit for ${endpoint}, retrying... (${i + 1}/${retries})`);
+        console.warn(`[fetchKitsu] 429 Rate Limit for ${endpoint}, retrying... (${i + 1}/${retries})`);
         await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
         continue;
       }
-      console.error(`[fetchJikan] Error ${res.status} for ${endpoint}`);
+      console.error(`[fetchKitsu] Error ${res.status} for ${endpoint}`);
       return null;
     } catch (e) {
-      console.error(`[fetchJikan] Exception for ${endpoint}:`, e);
+      console.error(`[fetchKitsu] Exception for ${endpoint}:`, e);
       if (i === retries - 1) return null;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -24,14 +24,14 @@ const fetchJikan = async (endpoint, retries = 3) => {
 };
 
 export async function generateStaticParams() {
-  const topAiringRes = await fetchJikan('/top/anime?filter=airing&page=1&limit=5');
-  const topUpcomingRes = await fetchJikan('/top/anime?filter=upcoming&page=1&limit=5');
-  const seasonalRes = await fetchJikan('/seasons/now?page=1&limit=6');
+  const topAiringRes = await fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5');
+  const topUpcomingRes = await fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5');
+  const seasonalRes = await fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6');
 
   const ids = [];
-  if (topAiringRes?.data) topAiringRes.data.forEach(a => ids.push(a.mal_id));
-  if (topUpcomingRes?.data) topUpcomingRes.data.forEach(a => ids.push(a.mal_id));
-  if (seasonalRes?.data) seasonalRes.data.forEach(a => ids.push(a.mal_id));
+  if (topAiringRes?.data) topAiringRes.data.forEach(a => ids.push(a.id));
+  if (topUpcomingRes?.data) topUpcomingRes.data.forEach(a => ids.push(a.id));
+  if (seasonalRes?.data) seasonalRes.data.forEach(a => ids.push(a.id));
 
   ids.push('1'); // Fallback
 
@@ -41,24 +41,24 @@ export async function generateStaticParams() {
 export default async function AnimeDetail({ params }) {
   const { id } = await params;
   
-  const animeRes = await fetchJikan(`/anime/${id}/full`);
+  const animeRes = await fetchKitsu(`/anime/${id}`);
   const anime = animeRes?.data;
 
   if (!anime) return <ClientAnimeLoader id={id} />;
 
-  const title = anime.title;
-  const enTitle = anime.title_english || title;
-  const jpTitle = anime.title_japanese || title;
-  const synopsis = anime.synopsis || "No synopsis available.";
-  const img = anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || "https://via.placeholder.com/225x320?text=No+Image";
-  const score = anime.score ? anime.score.toFixed(2) : "N/A";
-  const popularity = anime.popularity || "N/A";
-  const members = anime.members ? anime.members.toLocaleString() : "N/A";
-  const type = anime.type || "TV";
-  const status = anime.status;
-  const episodes = anime.episodes || "Unknown";
-  const startDate = anime.aired?.from ? new Date(anime.aired.from).toLocaleDateString() : "?";
-  const endDate = anime.aired?.to ? new Date(anime.aired.to).toLocaleDateString() : "?";
+  const title = anime.attributes.canonicalTitle;
+  const enTitle = anime.attributes.titles.en || anime.attributes.titles.en_jp || title;
+  const jpTitle = anime.attributes.titles.ja_jp || title;
+  const synopsis = anime.attributes.synopsis || "No synopsis available.";
+  const img = anime.attributes.posterImage?.large || "https://via.placeholder.com/225x320?text=No+Image";
+  const score = anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A";
+  const popularity = anime.attributes.popularityRank || "N/A";
+  const members = anime.attributes.userCount ? anime.attributes.userCount.toLocaleString() : "N/A";
+  const type = anime.attributes.subtype || "TV";
+  const status = anime.attributes.status;
+  const episodes = anime.attributes.episodeCount || "Unknown";
+  const startDate = anime.attributes.startDate || "?";
+  const endDate = anime.attributes.endDate || "?";
 
   return (
     <div className="main-wrapper anime-detail-page">

@@ -7,7 +7,7 @@ export default function ClientAnimeLoader({ id }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch(`https://api.jikan.moe/v4/anime/${id}/full`)
+    fetch(`https://kitsu.io/api/edge/anime/${id}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch');
         return res.json();
@@ -29,19 +29,19 @@ export default function ClientAnimeLoader({ id }) {
   if (loading) return <div className="main-wrapper" style={{padding: '20px'}}>Loading Anime Data...</div>;
   if (error || !anime) return <div className="main-wrapper" style={{padding: '20px'}}>Anime not found</div>;
 
-  const title = anime.title;
-  const enTitle = anime.title_english || title;
-  const jpTitle = anime.title_japanese || title;
-  const synopsis = anime.synopsis || "No synopsis available.";
-  const img = anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || "https://via.placeholder.com/225x320?text=No+Image";
-  const score = anime.score ? anime.score.toFixed(2) : "N/A";
-  const popularity = anime.popularity || "N/A";
-  const members = anime.members ? anime.members.toLocaleString() : "N/A";
-  const type = anime.type || "TV";
-  const status = anime.status;
-  const episodes = anime.episodes || "Unknown";
-  const startDate = anime.aired?.from ? new Date(anime.aired.from).toLocaleDateString() : "?";
-  const endDate = anime.aired?.to ? new Date(anime.aired.to).toLocaleDateString() : "?";
+  const title = anime.attributes.canonicalTitle;
+  const enTitle = anime.attributes.titles.en || anime.attributes.titles.en_jp || title;
+  const jpTitle = anime.attributes.titles.ja_jp || title;
+  const synopsis = anime.attributes.synopsis || "No synopsis available.";
+  const img = anime.attributes.posterImage?.large || "https://via.placeholder.com/225x320?text=No+Image";
+  const score = anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A";
+  const popularity = anime.attributes.popularityRank || "N/A";
+  const members = anime.attributes.userCount ? anime.attributes.userCount.toLocaleString() : "N/A";
+  const type = anime.attributes.subtype || "TV";
+  const status = anime.attributes.status;
+  const episodes = anime.attributes.episodeCount || "Unknown";
+  const startDate = anime.attributes.startDate || "?";
+  const endDate = anime.attributes.endDate || "?";
 
   return (
     <div className="main-wrapper anime-detail-page">
