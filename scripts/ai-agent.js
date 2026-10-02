@@ -23,7 +23,7 @@ async function runAutomation() {
   console.log(`Writing article about: ${topAnime.attributes.canonicalTitle}`);
 
   // 2. Generate News Article with Gemini
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
   const prompt = `You are a breaking news reporter for an anime website. 
 Write a news update about the anime '${topAnime.attributes.canonicalTitle}'.
 Return ONLY a valid JSON object with exactly two keys:
