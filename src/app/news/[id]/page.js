@@ -11,14 +11,15 @@ export function generateStaticParams() {
   return dbData.news.map((n) => ({ id: n.id.toString() }));
 }
 
-export default function NewsDetail({ params }) {
+export default async function NewsDetail({ params }) {
+  const resolvedParams = await params;
   const dbPath = path.join(process.cwd(), 'data', 'db.json');
   let dbData = { news: [] };
   try {
     dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
   } catch(e) {}
 
-  const article = dbData.news.find(n => n.id.toString() === params.id) || dbData.news[0];
+  const article = dbData.news.find(n => n.id.toString() === resolvedParams.id) || dbData.news[0];
   
   if (!article) return <div className="main-wrapper" style={{padding: '20px'}}>News not found</div>;
 

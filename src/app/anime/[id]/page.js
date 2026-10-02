@@ -38,7 +38,7 @@ export async function generateStaticParams() {
 }
 
 export default async function AnimeDetail({ params }) {
-  const { id } = params;
+  const { id } = await params;
   
   const animeRes = await fetchKitsu(`/anime/${id}`);
   const anime = animeRes?.data;
