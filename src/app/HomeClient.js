@@ -7,61 +7,76 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
   const [seasonal, setSeasonal] = useState(initialSeasonal);
 
   useEffect(() => {
-    const fetchKitsu = async (endpoint) => {
+    const fetchAnilist = async () => {
+      if (initialTopAiring && initialTopUpcoming && initialSeasonal) return;
+
+      const query = `
+      query {
+        airing: Page(page: 1, perPage: 5) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
+            id title { romaji english } coverImage { large } averageScore
+          }
+        }
+        upcoming: Page(page: 1, perPage: 5) {
+          media(type: ANIME, status: NOT_YET_RELEASED, sort: POPULARITY_DESC) {
+            id title { romaji english } coverImage { large } averageScore
+          }
+        }
+        seasonal: Page(page: 1, perPage: 6) {
+          media(type: ANIME, season: FALL, seasonYear: 2026, sort: POPULARITY_DESC) {
+            id title { romaji english } coverImage { large } format episodes averageScore popularity description(asHtml: false)
+          }
+        }
+      }`;
+
       try {
-        const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        return await res.json();
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = json.data;
+
+        if (!initialTopAiring && data?.airing?.media) {
+          setTopAiring(data.airing.media.map((anime, index) => ({
+            rank: index + 1,
+            title: anime.title.english || anime.title.romaji,
+            score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+            img: anime.coverImage.large,
+            id: anime.id
+          })));
+        }
+
+        if (!initialTopUpcoming && data?.upcoming?.media) {
+          setTopUpcoming(data.upcoming.media.map((anime, index) => ({
+            rank: index + 1,
+            title: anime.title.english || anime.title.romaji,
+            score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+            img: anime.coverImage.large,
+            id: anime.id
+          })));
+        }
+
+        if (!initialSeasonal && data?.seasonal?.media) {
+          setSeasonal(data.seasonal.media.map((anime) => ({
+            id: anime.id,
+            title: anime.title.english || anime.title.romaji,
+            img: anime.coverImage.large,
+            type: anime.format || "TV",
+            eps: anime.episodes ? `${anime.episodes} eps` : "? eps",
+            score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+            snippet: anime.description ? anime.description.substring(0, 100) + '...' : ''
+          })));
+        }
       } catch (e) {
-        return null;
+        console.error("Anilist fetch failed", e);
       }
     };
 
-    if (!initialTopAiring) {
-      fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5').then(res => {
-        if (res?.data) {
-          setTopAiring(res.data.map((anime, index) => ({
-            rank: index + 1,
-            title: anime.attributes.canonicalTitle,
-            score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-            img: anime.attributes.posterImage.large,
-            id: anime.id
-          })));
-        }
-      });
-    }
-
-    if (!initialTopUpcoming) {
-      fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5').then(res => {
-        if (res?.data) {
-          setTopUpcoming(res.data.map((anime, index) => ({
-            rank: index + 1,
-            title: anime.attributes.canonicalTitle,
-            score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-            img: anime.attributes.posterImage.large,
-            id: anime.id
-          })));
-        }
-      });
-    }
-
-    if (!initialSeasonal) {
-      fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6').then(res => {
-        if (res?.data) {
-          setSeasonal(res.data.map((anime) => ({
-            id: anime.id,
-            title: anime.attributes.canonicalTitle,
-            img: anime.attributes.posterImage.large,
-            type: anime.attributes.subtype || "TV",
-            eps: anime.attributes.episodeCount ? `${anime.attributes.episodeCount} eps` : "? eps",
-            score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-            members: anime.attributes.userCount ? (anime.attributes.userCount / 1000).toFixed(0) + 'K' : '0K',
-            snippet: anime.attributes.synopsis ? anime.attributes.synopsis.substring(0, 100) + '...' : ''
-          })));
-        }
-      });
-    }
+    fetchAnilist();
   }, [initialTopAiring, initialTopUpcoming, initialSeasonal]);
 
   const loadingPlaceholder = (
@@ -113,7 +128,7 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         {/* Seasonal Anime */}
         <div className="content-section">
           <div className="seasonal-header">
-            <span>Spring 2026 Anime</span>
+            <span>Fall 2026 Anime</span>
             <a href="#" className="view-more-link">View More Seasonal Anime</a>
           </div>
           <div className="seasonal-grid">

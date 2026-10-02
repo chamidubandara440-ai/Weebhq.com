@@ -1,37 +1,35 @@
 import Link from 'next/link';
 import ClientAnimeLoader from './ClientAnimeLoader';
 
-const fetchKitsu = async (endpoint, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
-      const res = await fetch(url);
-      if (res.ok) return await res.json();
-      if (res.status === 429) {
-        console.warn(`[fetchKitsu] 429 Rate Limit for ${endpoint}, retrying... (${i + 1}/${retries})`);
-        await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1)));
-        continue;
-      }
-      console.error(`[fetchKitsu] Error ${res.status} for ${endpoint}`);
-      return null;
-    } catch (e) {
-      console.error(`[fetchKitsu] Exception for ${endpoint}:`, e);
-      if (i === retries - 1) return null;
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+const fetchAnilist = async (query, variables = {}) => {
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch (e) {
+    return null;
   }
-  return null;
 };
 
 export async function generateStaticParams() {
-  const topAiringRes = await fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5');
-  const topUpcomingRes = await fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5');
-  const seasonalRes = await fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6');
+  const query = `
+  query {
+    airing: Page(page: 1, perPage: 5) { media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) { id } }
+    upcoming: Page(page: 1, perPage: 5) { media(type: ANIME, status: NOT_YET_RELEASED, sort: POPULARITY_DESC) { id } }
+    seasonal: Page(page: 1, perPage: 6) { media(type: ANIME, season: FALL, seasonYear: 2026, sort: POPULARITY_DESC) { id } }
+  }`;
 
+  const data = await fetchAnilist(query);
   const ids = [];
-  if (topAiringRes?.data) topAiringRes.data.forEach(a => ids.push(a.id));
-  if (topUpcomingRes?.data) topUpcomingRes.data.forEach(a => ids.push(a.id));
-  if (seasonalRes?.data) seasonalRes.data.forEach(a => ids.push(a.id));
+
+  if (data?.airing?.media) data.airing.media.forEach(a => ids.push(a.id));
+  if (data?.upcoming?.media) data.upcoming.media.forEach(a => ids.push(a.id));
+  if (data?.seasonal?.media) data.seasonal.media.forEach(a => ids.push(a.id));
 
   ids.push('1'); // Fallback
 
@@ -41,24 +39,33 @@ export async function generateStaticParams() {
 export default async function AnimeDetail({ params }) {
   const { id } = await params;
   
-  const animeRes = await fetchKitsu(`/anime/${id}`);
-  const anime = animeRes?.data;
+  const query = `
+  query ($id: Int) {
+    Media(id: $id, type: ANIME) {
+      id title { romaji english native } description(asHtml: false)
+      coverImage { extraLarge large } averageScore popularity format status episodes
+      startDate { year month day } endDate { year month day }
+    }
+  }`;
+
+  const data = await fetchAnilist(query, { id: parseInt(id) });
+  const anime = data?.Media;
 
   if (!anime) return <ClientAnimeLoader id={id} />;
 
-  const title = anime.attributes.canonicalTitle;
-  const enTitle = anime.attributes.titles.en || anime.attributes.titles.en_jp || title;
-  const jpTitle = anime.attributes.titles.ja_jp || title;
-  const synopsis = anime.attributes.synopsis || "No synopsis available.";
-  const img = anime.attributes.posterImage?.large || "https://via.placeholder.com/225x320?text=No+Image";
-  const score = anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A";
-  const popularity = anime.attributes.popularityRank || "N/A";
-  const members = anime.attributes.userCount ? anime.attributes.userCount.toLocaleString() : "N/A";
-  const type = anime.attributes.subtype || "TV";
-  const status = anime.attributes.status;
-  const episodes = anime.attributes.episodeCount || "Unknown";
-  const startDate = anime.attributes.startDate || "?";
-  const endDate = anime.attributes.endDate || "?";
+  const title = anime.title.english || anime.title.romaji;
+  const enTitle = anime.title.english || anime.title.romaji;
+  const jpTitle = anime.title.native || anime.title.romaji;
+  const synopsis = anime.description || "No synopsis available.";
+  const img = anime.coverImage.extraLarge || anime.coverImage.large;
+  const score = anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A";
+  const popularity = anime.popularity || "N/A";
+  const members = "N/A"; // AniList doesn't expose member count directly in this lightweight query, or it's called 'favourites' / 'stats'
+  const type = anime.format || "TV";
+  const status = anime.status;
+  const episodes = anime.episodes || "Unknown";
+  const startDate = anime.startDate?.year ? `${anime.startDate.year}-${anime.startDate.month}-${anime.startDate.day}` : "?";
+  const endDate = anime.endDate?.year ? `${anime.endDate.year}-${anime.endDate.month}-${anime.endDate.day}` : "?";
 
   return (
     <div className="main-wrapper anime-detail-page">

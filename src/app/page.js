@@ -3,64 +3,67 @@ import path from 'path';
 
 import HomeClient from './HomeClient';
 
-const fetchKitsu = async (endpoint) => {
+const fetchAnilist = async () => {
+  const query = `
+  query {
+    airing: Page(page: 1, perPage: 5) {
+      media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
+        id title { romaji english } coverImage { large } averageScore
+      }
+    }
+    upcoming: Page(page: 1, perPage: 5) {
+      media(type: ANIME, status: NOT_YET_RELEASED, sort: POPULARITY_DESC) {
+        id title { romaji english } coverImage { large } averageScore
+      }
+    }
+    seasonal: Page(page: 1, perPage: 6) {
+      media(type: ANIME, season: FALL, seasonYear: 2026, sort: POPULARITY_DESC) {
+        id title { romaji english } coverImage { large } format episodes averageScore popularity description(asHtml: false)
+      }
+    }
+  }`;
+
   try {
-    const url = `https://kitsu.io/api/edge${endpoint}${endpoint.includes('?') ? '&' : '?'}cb=20261002`;
-    const res = await fetch(url);
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
     if (!res.ok) return null;
-    return await res.json();
+    const json = await res.json();
+    return json.data;
   } catch (e) {
     return null;
   }
 };
 
 export default async function Home() {
-  const topAiringRes = await fetchKitsu('/anime?filter[status]=current&sort=-userCount&page[limit]=5');
-  const topUpcomingRes = await fetchKitsu('/anime?filter[status]=upcoming&sort=-userCount&page[limit]=5');
-  const seasonalRes = await fetchKitsu('/anime?filter[season]=spring&filter[seasonYear]=2024&sort=-userCount&page[limit]=6');
+  const data = await fetchAnilist();
 
-  const fallbackTopUpcoming = [
-    { rank: 1, title: "Re:Zero Season 3", score: "N/A", img: "https://cdn.myanimelist.net/images/anime/1435/141753l.jpg", id: 6 },
-    { rank: 2, title: "One Punch Man 3", score: "N/A", img: "https://cdn.myanimelist.net/images/anime/1208/126938l.jpg", id: 7 },
-    { rank: 3, title: "Bleach: Thousand-Year Blood War", score: "N/A", img: "https://cdn.myanimelist.net/images/anime/1908/135335l.jpg", id: 8 },
-    { rank: 4, title: "Fire Force Season 3", score: "N/A", img: "https://cdn.myanimelist.net/images/anime/1769/127393l.jpg", id: 9 },
-    { rank: 5, title: "Blue Lock Season 2", score: "N/A", img: "https://cdn.myanimelist.net/images/anime/1091/128387l.jpg", id: 10 },
-  ];
-
-  const fallbackSeasonal = [
-    { id: 11, title: "My Hero Academia Season 7", img: "https://cdn.myanimelist.net/images/anime/1023/142518l.jpg", type: "TV", eps: "? eps", score: "N/A", members: "100K", snippet: "" },
-    { id: 12, title: "Kaiju No. 8", img: "https://cdn.myanimelist.net/images/anime/1376/141208l.jpg", type: "TV", eps: "12 eps", score: "N/A", members: "100K", snippet: "" },
-    { id: 13, title: "Mushoku Tensei Season 2", img: "https://cdn.myanimelist.net/images/anime/1162/142410l.jpg", type: "TV", eps: "12 eps", score: "N/A", members: "100K", snippet: "" },
-    { id: 14, title: "KonoSuba Season 3", img: "https://cdn.myanimelist.net/images/anime/1567/141151l.jpg", type: "TV", eps: "11 eps", score: "N/A", members: "100K", snippet: "" },
-    { id: 15, title: "That Time I Got Reincarnated", img: "https://cdn.myanimelist.net/images/anime/1376/141175l.jpg", type: "TV", eps: "24 eps", score: "N/A", members: "100K", snippet: "" },
-    { id: 16, title: "Wind Breaker", img: "https://cdn.myanimelist.net/images/anime/1126/141697l.jpg", type: "TV", eps: "13 eps", score: "N/A", members: "100K", snippet: "" },
-  ];
-
-  const topAiring = topAiringRes?.data ? topAiringRes.data.map((anime, index) => ({
+  const topAiring = data?.airing?.media ? data.airing.media.map((anime, index) => ({
     rank: index + 1,
-    title: anime.attributes.canonicalTitle,
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    img: anime.attributes.posterImage.large,
+    title: anime.title.english || anime.title.romaji,
+    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+    img: anime.coverImage.large,
     id: anime.id
   })) : null;
 
-  const topUpcoming = topUpcomingRes?.data ? topUpcomingRes.data.map((anime, index) => ({
+  const topUpcoming = data?.upcoming?.media ? data.upcoming.media.map((anime, index) => ({
     rank: index + 1,
-    title: anime.attributes.canonicalTitle,
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    img: anime.attributes.posterImage.large,
+    title: anime.title.english || anime.title.romaji,
+    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+    img: anime.coverImage.large,
     id: anime.id
   })) : null;
 
-  const seasonal = seasonalRes?.data ? seasonalRes.data.map((anime) => ({
+  const seasonal = data?.seasonal?.media ? data.seasonal.media.map((anime) => ({
     id: anime.id,
-    title: anime.attributes.canonicalTitle,
-    img: anime.attributes.posterImage.large,
-    type: anime.attributes.subtype || "TV",
-    eps: anime.attributes.episodeCount ? `${anime.attributes.episodeCount} eps` : "? eps",
-    score: anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A",
-    members: anime.attributes.userCount ? (anime.attributes.userCount / 1000).toFixed(0) + 'K' : '0K',
-    snippet: anime.attributes.synopsis ? anime.attributes.synopsis.substring(0, 100) + '...' : ''
+    title: anime.title.english || anime.title.romaji,
+    img: anime.coverImage.large,
+    type: anime.format || "TV",
+    eps: anime.episodes ? `${anime.episodes} eps` : "? eps",
+    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
+    snippet: anime.description ? anime.description.substring(0, 100) + '...' : ''
   })) : null;
 
   // Read mock/AI generated data from local DB

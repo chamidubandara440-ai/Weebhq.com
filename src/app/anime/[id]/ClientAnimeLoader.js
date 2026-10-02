@@ -7,14 +7,28 @@ export default function ClientAnimeLoader({ id }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch(`https://kitsu.io/api/edge/anime/${id}`)
+    const query = `
+    query ($id: Int) {
+      Media(id: $id, type: ANIME) {
+        id title { romaji english native } description(asHtml: false)
+        coverImage { extraLarge large } averageScore popularity format status episodes
+        startDate { year month day } endDate { year month day }
+      }
+    }`;
+
+    fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables: { id: parseInt(id) } })
+    })
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch');
         return res.json();
       })
-      .then(data => {
-        if (data && data.data) {
-          setAnime(data.data);
+      .then(json => {
+        const data = json.data?.Media;
+        if (data) {
+          setAnime(data);
         } else {
           setError(true);
         }
@@ -29,19 +43,19 @@ export default function ClientAnimeLoader({ id }) {
   if (loading) return <div className="main-wrapper" style={{padding: '20px'}}>Loading Anime Data...</div>;
   if (error || !anime) return <div className="main-wrapper" style={{padding: '20px'}}>Anime not found</div>;
 
-  const title = anime.attributes.canonicalTitle;
-  const enTitle = anime.attributes.titles.en || anime.attributes.titles.en_jp || title;
-  const jpTitle = anime.attributes.titles.ja_jp || title;
-  const synopsis = anime.attributes.synopsis || "No synopsis available.";
-  const img = anime.attributes.posterImage?.large || "https://via.placeholder.com/225x320?text=No+Image";
-  const score = anime.attributes.averageRating ? (anime.attributes.averageRating / 10).toFixed(2) : "N/A";
-  const popularity = anime.attributes.popularityRank || "N/A";
-  const members = anime.attributes.userCount ? anime.attributes.userCount.toLocaleString() : "N/A";
-  const type = anime.attributes.subtype || "TV";
-  const status = anime.attributes.status;
-  const episodes = anime.attributes.episodeCount || "Unknown";
-  const startDate = anime.attributes.startDate || "?";
-  const endDate = anime.attributes.endDate || "?";
+  const title = anime.title.english || anime.title.romaji;
+  const enTitle = anime.title.english || anime.title.romaji;
+  const jpTitle = anime.title.native || anime.title.romaji;
+  const synopsis = anime.description || "No synopsis available.";
+  const img = anime.coverImage.extraLarge || anime.coverImage.large;
+  const score = anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A";
+  const popularity = anime.popularity || "N/A";
+  const members = "N/A";
+  const type = anime.format || "TV";
+  const status = anime.status;
+  const episodes = anime.episodes || "Unknown";
+  const startDate = anime.startDate?.year ? `${anime.startDate.year}-${anime.startDate.month}-${anime.startDate.day}` : "?";
+  const endDate = anime.endDate?.year ? `${anime.endDate.year}-${anime.endDate.month}-${anime.endDate.day}` : "?";
 
   return (
     <div className="main-wrapper anime-detail-page">
