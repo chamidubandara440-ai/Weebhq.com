@@ -51,7 +51,9 @@ export default function NewsDetail({ params }) {
           
           <div className="news-content-body" style={{minHeight: '400px'}}>
             <img src={article.img} alt="News Image" className="news-float-img" />
-            <p style={{fontSize: '14px', lineHeight: '1.6'}}>{article.snippet}</p>
+            
+            <div style={{fontSize: '14px', lineHeight: '1.6'}} dangerouslySetInnerHTML={{ __html: article.fullText || `<p>${article.snippet}</p>` }} />
+            
             <br/>
             <p style={{fontSize: '12px', color: '#666'}}>
               <strong>Powered by Google Gemini 3.8 Flash.</strong><br/>
