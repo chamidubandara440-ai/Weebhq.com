@@ -93,7 +93,7 @@ export default async function Home() {
               <div className="ranking-rank">{anime.rank}</div>
               <img src={anime.img} alt={anime.title} className="ranking-img" />
               <div className="ranking-info">
-                <h4><a href="/anime/1">{anime.title}</a></h4>
+                <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
                 <div className="ranking-score">Scored {anime.score}</div>
               </div>
             </li>
@@ -109,7 +109,7 @@ export default async function Home() {
               <div className="ranking-rank">{anime.rank}</div>
               <img src={anime.img} alt={anime.title} className="ranking-img" />
               <div className="ranking-info">
-                <h4><a href="#">{anime.title}</a></h4>
+                <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
                 <div className="ranking-score">Scored {anime.score}</div>
               </div>
             </li>
@@ -129,8 +129,8 @@ export default async function Home() {
           <div className="seasonal-grid">
             {seasonal.map((anime) => (
               <div key={anime.id} className="anime-box">
-                <div className="anime-box-title"><a href="/anime/1">{anime.title}</a></div>
-                <a href="/anime/1"><img src={anime.img} alt={anime.title} className="anime-box-img" /></a>
+                <div className="anime-box-title"><a href={`/anime/${anime.id}`}>{anime.title}</a></div>
+                <a href={`/anime/${anime.id}`}><img src={anime.img} alt={anime.title} className="anime-box-img" /></a>
                 <div className="anime-box-meta">
                   {anime.type} - {anime.eps}
                 </div>
@@ -171,9 +171,9 @@ export default async function Home() {
           <div className="news-list">
             {news.map((item) => (
               <div key={item.id} className="news-item">
-                <a href="/news/1"><img src={item.img} alt={item.title} className="news-img" /></a>
+                <a href={`/news/${item.id}`}><img src={item.img} alt={item.title} className="news-img" /></a>
                 <div className="news-info">
-                  <h4><a href="/news/1">{item.title}</a></h4>
+                  <h4><a href={`/news/${item.id}`}>{item.title}</a></h4>
                   <div className="news-date">{item.date}</div>
                   <p className="news-snippet">{item.snippet}</p>
                 </div>
