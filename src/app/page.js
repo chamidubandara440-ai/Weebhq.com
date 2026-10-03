@@ -88,16 +88,18 @@ export default async function Home() {
       news = files.map(filename => {
         const markdownWithMeta = fs.readFileSync(path.join(newsDir, filename), 'utf8');
         const { data } = matter(markdownWithMeta);
+        const slug = filename.replace('.md', '');
         return {
-          id: data.id || filename.replace('.md', ''),
+          id: slug, // Use slug for routing
+          timestamp: data.id || "0", // Keep timestamp for sorting
           title: data.title,
           date: data.date,
           snippet: data.snippet,
           img: data.img
         };
       });
-      // Sort descending by id/timestamp
-      news.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+      // Sort descending by timestamp (newest first)
+      news.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
       news = news.slice(0, 5); // Only show top 5 on homepage
     }
   } catch(e) {
