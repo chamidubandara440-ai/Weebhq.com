@@ -149,19 +149,30 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         <div className="content-section">
           <div className="seasonal-header">
             <span>Latest Anime Reviews</span>
-            <a href="#" className="view-more-link">View More Reviews</a>
+            <a href="/anime/reviews" className="view-more-link">View More Reviews</a>
           </div>
           <div className="reviews-list">
             {reviews.map((review) => (
-              <div key={review.id} className="review-item">
-                <a href="/anime/1#reviews"><img src={review.img} alt={review.title} className="review-img" /></a>
-                <div className="review-info">
-                  <div className="review-header">
-                    <h4><a href="/anime/1#reviews">{review.title}</a></h4>
-                    <span className="review-score">Score: <strong>{review.score}</strong></span>
+              <div key={review.id} className="mal-review-item">
+                <div className="mal-review-img-col">
+                  <a href={`/reviews/${review.id}`}>
+                    <img src={review.img} alt={review.title} className="mal-review-img" />
+                  </a>
+                </div>
+                <div className="mal-review-content">
+                  <div className="mal-review-header">
+                    <div className="mal-review-title">
+                      <a href={`/reviews/${review.id}`}>{review.title}</a>
+                      <span className="mal-review-add">add</span>
+                    </div>
+                    <div className="mal-review-score">Overall Rating: {review.score || '9'}</div>
                   </div>
-                  <div className="review-meta">By <a href="#">{review.user}</a></div>
-                  <p className="review-excerpt">{review.excerpt} <a href="/anime/1#reviews">read more</a></p>
+                  <div className="mal-review-body">
+                    {review.snippet} <a href={`/reviews/${review.id}`}>read more</a>
+                  </div>
+                  <div className="mal-review-footer">
+                    {review.date} by <a href="#">{review.user || 'anonymous'}</a>
+                  </div>
                 </div>
               </div>
             ))}
