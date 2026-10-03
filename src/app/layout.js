@@ -25,12 +25,12 @@ export default function RootLayout({ children }) {
               <div className="dropdown-content">
                 <a href="/anime/search">Anime Search</a>
                 <a href="/anime/top">Top Anime</a>
-                <a href="#">Seasonal Anime</a>
-                <a href="#">Videos</a>
-                <a href="#">Reviews</a>
-                <a href="#">Recommendations</a>
-                <a href="#">2026 Challenge</a>
-                <a href="#">Fantasy Anime League</a>
+                <a href="/anime/seasonal">Seasonal Anime</a>
+                <a href="/anime/videos">Videos</a>
+                <a href="/anime/reviews">Reviews</a>
+                <a href="/anime/recommendations">Recommendations</a>
+                <a href="/anime/challenge">2026 Challenge</a>
+                <a href="/anime/fal">Fantasy Anime League</a>
               </div>
             </div>
             <div className="dropdown">
