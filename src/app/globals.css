@@ -219,6 +219,54 @@ a:hover {
   color: var(--mal-text);
 }
 
+/* Seasonal Cards (Image with gradient overlay) */
+.seasonal-card-row {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+.seasonal-card-row::-webkit-scrollbar {
+  height: 6px;
+}
+.seasonal-card-row::-webkit-scrollbar-thumb {
+  background: var(--mal-border);
+  border-radius: 3px;
+}
+.seasonal-card {
+  position: relative;
+  width: calc(20% - 4px); /* 5 items per row */
+  min-width: 130px;
+  aspect-ratio: 2 / 3;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.seasonal-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.seasonal-card-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 30px 8px 8px 8px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+.seasonal-card-info a {
+  color: #fff;
+  text-decoration: none;
+}
+.seasonal-card-info a:hover {
+  text-decoration: underline;
+}
+
 /* News and Articles */
 .news-list, .reviews-list {
   display: flex;

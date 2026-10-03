@@ -129,15 +129,16 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         <div className="content-section">
           <div className="seasonal-header">
             <span>Fall 2026 Anime</span>
-            <a href="#" className="view-more-link">View More Seasonal Anime</a>
+            <a href="/anime/seasonal" className="view-more-link">View More</a>
           </div>
-          <div className="seasonal-grid">
+          <div className="seasonal-card-row">
             {seasonal ? seasonal.map((anime) => (
-              <div key={anime.id} className="anime-box">
-                <div className="anime-box-title"><a href={`/anime/${anime.id}`}>{anime.title}</a></div>
-                <a href={`/anime/${anime.id}`}><img src={anime.img} alt={anime.title} className="anime-box-img" /></a>
-                <div className="anime-box-meta">
-                  {anime.type} - {anime.eps}
+              <div key={anime.id} className="seasonal-card">
+                <a href={`/anime/${anime.id}`}>
+                  <img src={anime.img} alt={anime.title} />
+                </a>
+                <div className="seasonal-card-info">
+                  <a href={`/anime/${anime.id}`}>{anime.title}</a>
                 </div>
               </div>
             )) : loadingPlaceholder}
