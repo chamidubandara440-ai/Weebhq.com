@@ -1,5 +1,6 @@
 import "./globals.css";
 import ThemeToggle from "../components/ThemeToggle";
+import Script from "next/script";
 
 export const metadata = {
   title: "WeebHQ.com - Anime and Manga Database and Community",
@@ -9,6 +10,20 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" data-theme="dark">
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-T8M5N8X7FK"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-T8M5N8X7FK');
+          `}
+        </Script>
+      </head>
       <body>
         <div className="header-wrapper">
           <div className="header-container">
