@@ -4,6 +4,9 @@ import feedparser
 from datetime import datetime
 import google.generativeai as genai
 
+import requests
+import json
+
 # ==========================================
 # Weeb - The Autonomous Anime Agent 🤖
 # ==========================================
@@ -11,44 +14,47 @@ import google.generativeai as genai
 # 1. RSS Feeds to Monitor
 RSS_FEEDS = {
     "news": "https://www.animenewsnetwork.com/news/rss.xml",
-    # We can add more feeds for 'reviews' and 'recommendations' later
+    "reviews": "https://www.animenewsnetwork.com/review/rss.xml",
+    "recommendations": "https://www.animenewsnetwork.com/feature/rss.xml"
 }
 
-# Your Gemini API Key (Set this in Github Secrets later)
-API_KEY = os.environ.get("WEEB_API_KEY", "")
+# API Keys (Set these in Github Secrets)
+GEMINI_API_KEY = os.environ.get("WEEB_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-    # Using the fast and lightweight flash model
-    model = genai.GenerativeModel('gemini-3.5-flash')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-3.5-flash')
+
+def call_groq_api(prompt):
+    if not GROQ_API_KEY:
+        raise Exception("GROQ_API_KEY not found")
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "llama3-8b-8192",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    else:
+        raise Exception(f"Groq API Error: {response.text}")
 
 def rewrite_article_with_llm(title, summary, link, category, img_url):
     """
-    This function acts as Weeb's brain. 
-    It will take the original article and rewrite it using Gemini API.
+    Weeb's brain uses different APIs for different tasks!
+    News -> Gemini API
+    Reviews / Recommendations -> Groq API (Llama 3)
     """
-    print(f"[*] Weeb's brain is processing: {title}")
+    print(f"[*] Weeb's brain is processing {category}: {title}")
     
     timestamp = int(time.time())
     date_str = datetime.now().strftime('%b %d, %Y')
     
-    if not API_KEY:
-        print("[!] No WEEB_API_KEY found! Using basic text.")
-        return f"""---
-id: "{timestamp}"
-title: "{title}"
-date: "{date_str}"
-snippet: "This article was autonomously caught by Weeb!"
-img: "{img_url}"
-author: "Weeb"
----
-
-Original News: {title}
-Source: [Read Original]({link})
-
-{summary}
-"""
-
     prompt = f"""
     You are an expert anime journalist named Weeb. 
     Rewrite the following {category} article in English to make it engaging, SEO-friendly, and slightly longer. 
@@ -67,6 +73,7 @@ Source: [Read Original]({link})
     date: "{date_str}"
     snippet: "<A 1-sentence engaging summary>"
     img: "{img_url}"
+    score: 8.5
     author: "Weeb"
     ---
     
@@ -74,22 +81,32 @@ Source: [Read Original]({link})
     """
     
     try:
-        response = model.generate_content(prompt)
-        text = response.text.replace("```markdown", "").replace("```", "").strip()
+        if category == "news":
+            print("[*] Using Gemini API for News...")
+            if not GEMINI_API_KEY:
+                raise Exception("No Gemini Key")
+            response = gemini_model.generate_content(prompt)
+            text = response.text
+        else:
+            print(f"[*] Using Groq API for {category.capitalize()}...")
+            text = call_groq_api(prompt)
+            
+        text = text.replace("```markdown", "").replace("```", "").strip()
         return text
     except Exception as e:
-        print(f"[!] Weeb got a headache (API Error): {e}")
+        print(f"[!] Weeb got a headache (API Error on {category}): {e}")
         # Fallback if API fails
         return f"""---
 id: "{timestamp}"
 title: "{title}"
 date: "{date_str}"
-snippet: "Weeb tried to rewrite this but got an API error."
+snippet: "Weeb tried to rewrite this {category} but got an API error."
 img: "{img_url}"
+score: 8.0
 author: "Weeb"
 ---
 
-Original News: {title}
+Original Article: {title}
 Source: [Read Original]({link})
 
 {summary}
