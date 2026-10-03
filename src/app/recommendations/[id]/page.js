@@ -1,63 +1,76 @@
+import fs from 'fs';
+import path from 'path';
+import matter from 'gray-matter';
+import { marked } from 'marked';
+
 export function generateStaticParams() {
-  return [{ id: '1' }, { id: '2' }, { id: '3' }];
+  const recDir = path.join(process.cwd(), 'content', 'recommendations');
+  let ids = [];
+  try {
+    if (fs.existsSync(recDir)) {
+      const files = fs.readdirSync(recDir).filter(f => f.endsWith('.md'));
+      ids = files.map(filename => ({ id: filename.replace('.md', '') }));
+    }
+  } catch(e) {}
+  
+  if (ids.length === 0) ids.push({ id: '1' });
+  return ids;
 }
 
-export default function RecommendationDetail({ params }) {
+export default async function RecommendationDetail({ params }) {
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+
+  const recDir = path.join(process.cwd(), 'content', 'recommendations');
+  const filePath = path.join(recDir, `${id}.md`);
+  
+  let article = null;
+  let htmlContent = "";
+
+  try {
+    if (fs.existsSync(filePath)) {
+      const fileContents = fs.readFileSync(filePath, 'utf8');
+      const { data, content } = matter(fileContents);
+      htmlContent = marked.parse(content);
+      
+      article = {
+        title: data.title,
+        date: data.date,
+        img: data.img,
+        tags: data.tags || [],
+        fullText: htmlContent
+      };
+    }
+  } catch(e) {
+    console.error("Failed to read markdown file", e);
+  }
+
+  if (!article) {
+    return <div className="main-wrapper" style={{padding: '20px'}}>Recommendation not found</div>;
+  }
+
   return (
     <div className="main-wrapper rec-detail-page">
       <div className="news-top-bar">
         <h2 className="news-section-title">Anime Recommendations</h2>
         <div className="breadcrumbs">
-          Top &gt; Anime Recommendations &gt; Anime A and Anime B
+          Top &gt; Anime Recommendations &gt; {article.title}
         </div>
       </div>
 
-      <div className="rec-detail-container">
+      <div className="rec-detail-container" style={{padding: '20px'}}>
+        <h1 style={{marginBottom: '15px'}}>{article.title}</h1>
+        <div style={{color: '#666', fontSize: '12px', marginBottom: '20px'}}>
+          Published on {article.date}
+        </div>
         
-        <div className="rec-anime-compare">
-          <div className="rec-anime-card">
-            <a href="/anime/1"><img src="https://cdn.myanimelist.net/images/anime/1015/138006l.jpg" alt="Anime A"/></a>
-            <div className="rec-anime-info">
-              <h3><a href="/anime/1">Sousou no Frieren</a></h3>
-              <p>Type: TV - 28 eps</p>
-              <p>Score: <strong>9.34</strong></p>
-            </div>
-          </div>
-          
-          <div className="rec-arrow-big">
-            If you liked this...<br/>
-            <span>&rarr;</span><br/>
-            ...then you might like
-          </div>
-
-          <div className="rec-anime-card">
-            <a href="/anime/1"><img src="https://cdn.myanimelist.net/images/anime/1171/141703l.jpg" alt="Anime B"/></a>
-            <div className="rec-anime-info">
-              <h3><a href="/anime/1">Solo Leveling</a></h3>
-              <p>Type: TV - 12 eps</p>
-              <p>Score: <strong>8.33</strong></p>
-            </div>
-          </div>
+        <div className="news-tags" style={{marginBottom: '20px'}}>
+          {article.tags && article.tags.map((tag, i) => (
+            <a key={i} href="#" className="tag-pill">{tag}</a>
+          ))}
         </div>
 
-        <div className="rec-explanation-list">
-          <div className="rec-header-text">Users who recommend this pair say:</div>
-          
-          <div className="rec-user-text">
-            <div className="rec-user-meta">
-              <a href="#">user123</a> - Yesterday
-            </div>
-            <p>Both shows feature incredible fantasy worlds with deep lore. While Frieren focuses more on the journey after the demon king is defeated and the passage of time, Solo Leveling is purely about getting stronger and action. However, the animation quality in both is top-tier and they both give you that satisfying feeling when the main character shows off their true power.</p>
-          </div>
-          
-          <div className="rec-user-text">
-            <div className="rec-user-meta">
-              <a href="#">animefan99</a> - Jan 14, 2026
-            </div>
-            <p>The pacing is different but if you enjoy fantasy settings with magic systems, both are great watches. Definitely recommend both if you haven't seen them.</p>
-          </div>
-        </div>
-
+        <div className="markdown-content" style={{lineHeight: '1.6'}} dangerouslySetInnerHTML={{ __html: article.fullText }} />
       </div>
     </div>
   );

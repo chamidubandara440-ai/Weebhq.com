@@ -67,44 +67,38 @@ export default async function Home() {
     snippet: anime.description ? anime.description.substring(0, 100) + '...' : ''
   })) : null;
 
-  // Read mock/AI generated data from local DB
-  const dbPath = path.join(process.cwd(), 'data', 'db.json');
-  let dbData = { reviews: [], news: [], articles: [], recommendations: [] };
-  try {
-    dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  } catch(e) {
-    console.error("Failed to read db.json");
-  }
-
-  const reviews = dbData.reviews;
-  const recommendations = dbData.recommendations;
-
-  // Read news from markdown files
-  const newsDir = path.join(process.cwd(), 'content', 'news');
-  let news = [];
-  try {
-    if (fs.existsSync(newsDir)) {
-      const files = fs.readdirSync(newsDir).filter(f => f.endsWith('.md'));
-      news = files.map(filename => {
-        const markdownWithMeta = fs.readFileSync(path.join(newsDir, filename), 'utf8');
-        const { data } = matter(markdownWithMeta);
-        const slug = filename.replace('.md', '');
-        return {
-          id: slug, // Use slug for routing
-          timestamp: data.id || "0", // Keep timestamp for sorting
-          title: data.title,
-          date: data.date,
-          snippet: data.snippet,
-          img: data.img
-        };
-      });
-      // Sort descending by timestamp (newest first)
-      news.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
-      news = news.slice(0, 5); // Only show top 5 on homepage
+  // Helper function to read markdown files from a directory
+  const readMarkdownDir = (dirName, limit) => {
+    const dirPath = path.join(process.cwd(), 'content', dirName);
+    let items = [];
+    try {
+      if (fs.existsSync(dirPath)) {
+        const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.md'));
+        items = files.map(filename => {
+          const fileContents = fs.readFileSync(path.join(dirPath, filename), 'utf8');
+          const { data } = matter(fileContents);
+          return {
+            id: filename.replace('.md', ''),
+            timestamp: data.id || "0",
+            title: data.title,
+            date: data.date,
+            snippet: data.snippet,
+            img: data.img
+          };
+        });
+        items.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+        if (limit) items = items.slice(0, limit);
+      }
+    } catch(e) {
+      console.error(`Failed to read markdown files from ${dirName}`, e);
     }
-  } catch(e) {
-    console.error("Failed to read news markdown files", e);
-  }
+    return items;
+  };
+
+  const reviews = readMarkdownDir('reviews', 5);
+  const news = readMarkdownDir('news', 5);
+  const recommendations = readMarkdownDir('recommendations', 5);
+  const articles = readMarkdownDir('articles', 5);
 
   return (
     <HomeClient 
