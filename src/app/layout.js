@@ -19,52 +19,72 @@ export default function RootLayout({ children }) {
           </div>
         </div>
         <div className="sub-menu">
-          <div className="sub-menu-container">
-            <div className="dropdown">
-              <a href="#" className="dropbtn">Anime</a>
-              <div className="dropdown-content">
-                <a href="/anime/search">Anime Search</a>
-                <a href="/anime/top">Top Anime</a>
-                <a href="/anime/seasonal">Seasonal Anime</a>
-                <a href="/anime/videos">Videos</a>
-                <a href="/anime/reviews">Reviews</a>
-                <a href="/anime/recommendations">Recommendations</a>
-                <a href="/anime/challenge">2026 Challenge</a>
-                <a href="/anime/fal">Fantasy Anime League</a>
+          <div className="sub-menu-container" style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+            <div className="sub-menu-links" style={{display: "flex"}}>
+              <div className="dropdown">
+                <a href="#" className="dropbtn">Anime</a>
+                <div className="dropdown-content">
+                  <a href="/anime/search">Anime Search</a>
+                  <a href="/anime/top">Top Anime</a>
+                  <a href="/anime/seasonal">Seasonal Anime</a>
+                  <a href="/anime/videos">Videos</a>
+                  <a href="/anime/reviews">Reviews</a>
+                  <a href="/anime/recommendations">Recommendations</a>
+                  <a href="/anime/challenge">2026 Challenge</a>
+                  <a href="/anime/fal">Fantasy Anime League</a>
+                </div>
               </div>
-            </div>
-            <div className="dropdown">
-              <a href="#" className="dropbtn">Manga</a>
-              <div className="dropdown-content">
-                <a href="#">Manga Search</a>
-                <a href="#">Top Manga</a>
-                <a href="#">Adapted to Anime <span className="tag-new">New</span></a>
-                <a href="#">Manga Store</a>
-                <a href="#">Reviews</a>
-                <a href="#">Recommendations</a>
-                <a href="#">2026 Challenge</a>
+              <div className="dropdown">
+                <a href="#" className="dropbtn">Manga</a>
+                <div className="dropdown-content">
+                  <a href="#">Manga Search</a>
+                  <a href="#">Top Manga</a>
+                  <a href="#">Adapted to Anime <span className="tag-new">New</span></a>
+                  <a href="#">Manga Store</a>
+                  <a href="#">Reviews</a>
+                  <a href="#">Recommendations</a>
+                  <a href="#">2026 Challenge</a>
+                </div>
               </div>
-            </div>
-            <div className="dropdown">
-              <a href="#" className="dropbtn">Community</a>
-              <div className="dropdown-content">
-                <a href="#">Forums</a>
-                <a href="#">Clubs</a>
-                <a href="#">Blogs</a>
-                <a href="#">Users</a>
-                <a href="#">Discord</a>
+              <div className="dropdown">
+                <a href="#" className="dropbtn">Community</a>
+                <div className="dropdown-content">
+                  <a href="#">Forums</a>
+                  <a href="#">Clubs</a>
+                  <a href="#">Blogs</a>
+                  <a href="#">Users</a>
+                  <a href="#">Discord</a>
+                </div>
               </div>
-            </div>
-            <a href="#" className="dropbtn">Industry</a>
-            <div className="dropdown">
-              <a href="#" className="dropbtn">Watch</a>
-              <div className="dropdown-content">
-                <a href="#">Episode Videos</a>
-                <a href="#">Anime Trailers</a>
+              <a href="#" className="dropbtn">Industry</a>
+              <div className="dropdown">
+                <a href="#" className="dropbtn">Watch</a>
+                <div className="dropdown-content">
+                  <a href="#">Episode Videos</a>
+                  <a href="#">Anime Trailers</a>
+                </div>
               </div>
+              <a href="#" className="dropbtn">Read</a>
+              <a href="#" className="dropbtn">Help</a>
             </div>
-            <a href="#" className="dropbtn">Read</a>
-            <a href="#" className="dropbtn">Help</a>
+            
+            <div className="mal-search-bar">
+              <select className="mal-search-select">
+                <option value="all">All</option>
+                <option value="anime">Anime</option>
+                <option value="manga">Manga</option>
+              </select>
+              <input type="text" className="mal-search-input" placeholder="Search Anime, Manga, and more..." />
+              <button className="mal-search-btn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="welcome-banner">
+          <div className="welcome-banner-container">
+            Welcome to WeebHQ.com!
           </div>
         </div>
         

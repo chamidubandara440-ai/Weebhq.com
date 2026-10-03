@@ -14,12 +14,12 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
       query {
         airing: Page(page: 1, perPage: 5) {
           media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
-            id title { romaji english } coverImage { large } averageScore
+            id title { romaji english } coverImage { large } averageScore format episodes popularity
           }
         }
         upcoming: Page(page: 1, perPage: 5) {
           media(type: ANIME, status: NOT_YET_RELEASED, sort: POPULARITY_DESC) {
-            id title { romaji english } coverImage { large } averageScore
+            id title { romaji english } coverImage { large } averageScore format episodes popularity
           }
         }
         seasonal: Page(page: 1, perPage: 6) {
@@ -46,7 +46,10 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
             title: anime.title.english || anime.title.romaji,
             score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
             img: anime.coverImage.large,
-            id: anime.id
+            id: anime.id,
+            type: anime.format || "TV",
+            eps: anime.episodes || 0,
+            members: anime.popularity ? anime.popularity.toLocaleString() : "0"
           })));
         }
 
@@ -56,7 +59,10 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
             title: anime.title.english || anime.title.romaji,
             score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
             img: anime.coverImage.large,
-            id: anime.id
+            id: anime.id,
+            type: anime.format || "TV",
+            eps: anime.episodes || 0,
+            members: anime.popularity ? anime.popularity.toLocaleString() : "0"
           })));
         }
 
@@ -87,7 +93,10 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
     <div className="main-wrapper">
       <div className="left-col">
         {/* Top Airing */}
-        <div className="side-header">Top Airing Anime</div>
+        <div className="side-header">
+          <span>Top Airing Anime</span>
+          <a href="/anime/top">More</a>
+        </div>
         {topAiring ? (
           <ul className="ranking-list">
             {topAiring.map((anime) => (
@@ -95,17 +104,23 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                 <div className="ranking-rank">{anime.rank}</div>
                 <img src={anime.img} alt={anime.title} className="ranking-img" />
                 <div className="ranking-info">
-                  <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
-                  <div className="ranking-score">Scored {anime.score}</div>
+                  <div className="ranking-title-row">
+                    <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
+                    <span className="mal-review-add">add</span>
+                  </div>
+                  <div className="ranking-meta">{anime.type}, {anime.eps} eps, scored {anime.score}</div>
+                  <div className="ranking-members">{anime.members} members</div>
                 </div>
               </li>
             ))}
           </ul>
         ) : loadingPlaceholder}
-        <div className="view-more"><a href="#">More</a></div>
 
         {/* Top Upcoming */}
-        <div className="side-header" style={{marginTop: "20px"}}>Top Upcoming Anime</div>
+        <div className="side-header" style={{marginTop: "20px"}}>
+          <span>Top Upcoming Anime</span>
+          <a href="/anime/seasonal">More</a>
+        </div>
         {topUpcoming ? (
           <ul className="ranking-list">
             {topUpcoming.map((anime) => (
@@ -113,14 +128,17 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                 <div className="ranking-rank">{anime.rank}</div>
                 <img src={anime.img} alt={anime.title} className="ranking-img" />
                 <div className="ranking-info">
-                  <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
-                  <div className="ranking-score">Scored {anime.score}</div>
+                  <div className="ranking-title-row">
+                    <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
+                    <span className="mal-review-add">add</span>
+                  </div>
+                  <div className="ranking-meta">{anime.type}, {anime.eps} eps, scored {anime.score}</div>
+                  <div className="ranking-members">{anime.members} members</div>
                 </div>
               </li>
             ))}
           </ul>
         ) : loadingPlaceholder}
-        <div className="view-more"><a href="#">More</a></div>
       </div>
       
       <div className="right-col">
@@ -183,16 +201,26 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         <div className="content-section">
           <div className="seasonal-header">
             <span>Anime & Manga News</span>
-            <a href="#" className="view-more-link">More</a>
+            <a href="/news" className="view-more-link">More</a>
           </div>
           <div className="news-list">
             {news.map((item) => (
-              <div key={item.id} className="news-item">
-                <a href={`/news/${item.id}`}><img src={item.img} alt={item.title} className="news-img" /></a>
-                <div className="news-info">
-                  <h4><a href={`/news/${item.id}`}>{item.title}</a></h4>
-                  <div className="news-date">{item.date}</div>
-                  <p className="news-snippet">{item.snippet}</p>
+              <div key={item.id} className="mal-news-item">
+                <div className="mal-news-img-col">
+                  <a href={`/news/${item.id}`}>
+                    <img src={item.img} alt={item.title} className="mal-news-img" />
+                  </a>
+                </div>
+                <div className="mal-news-content">
+                  <div className="mal-news-title">
+                    <a href={`/news/${item.id}`}>{item.title}</a>
+                  </div>
+                  <div className="mal-news-body">
+                    {item.snippet} <a href={`/news/${item.id}`}>read more</a>
+                  </div>
+                  <div className="mal-news-footer">
+                    {item.date} by <a href="#">{item.user || 'WeebHQ_News'}</a> | <a href="#">Discuss (0 comments)</a>
+                  </div>
                 </div>
               </div>
             ))}
@@ -203,27 +231,46 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         <div className="content-section">
           <div className="seasonal-header">
             <span>Latest Anime Recommendations</span>
-            <a href="#" className="view-more-link">More</a>
+            <a href="/anime/recommendations" className="view-more-link">View More</a>
           </div>
-          <div className="rec-list">
+          <div className="mal-rec-list">
             {recommendations.map((rec) => (
-              <a href="/recommendations/1" key={rec.id} className="rec-item" style={{display:"block", color:"inherit", textDecoration:"none"}}>
-                <div className="rec-images">
-                  <div className="rec-img-box">
-                    <img src={rec.sourceImg} alt={rec.sourceTitle} />
-                    <div className="rec-title">{rec.sourceTitle}</div>
+              <div key={rec.id} className="mal-rec-item">
+                <div className="mal-rec-top">
+                  
+                  {/* Left Side (If you liked) */}
+                  <div className="mal-rec-half">
+                    <a href={`/anime/${rec.sourceId || 1}`}>
+                      <img src={rec.sourceImg} alt={rec.sourceTitle} className="mal-rec-img" />
+                    </a>
+                    <div className="mal-rec-info">
+                      <div className="mal-rec-label">If you liked</div>
+                      <div className="mal-rec-title"><a href={`/anime/${rec.sourceId || 1}`}>{rec.sourceTitle}</a></div>
+                      <span className="mal-review-add">add</span>
+                    </div>
                   </div>
-                  <div className="rec-arrow">then<br/>you might like</div>
-                  <div className="rec-img-box">
-                    <img src={rec.recImg} alt={rec.recTitle} />
-                    <div className="rec-title">{rec.recTitle}</div>
+
+                  {/* Right Side (...then you might like) */}
+                  <div className="mal-rec-half">
+                    <a href={`/anime/${rec.recId || 1}`}>
+                      <img src={rec.recImg} alt={rec.recTitle} className="mal-rec-img" />
+                    </a>
+                    <div className="mal-rec-info">
+                      <div className="mal-rec-label">...then you might like</div>
+                      <div className="mal-rec-title"><a href={`/anime/${rec.recId || 1}`}>{rec.recTitle}</a></div>
+                      <span className="mal-review-add">add</span>
+                    </div>
+                  </div>
+
+                </div>
+                
+                <div className="mal-rec-bottom">
+                  <div className="mal-rec-text">{rec.text}</div>
+                  <div className="mal-rec-footer">
+                    Anime rec by <a href="#">{rec.user || 'anonymous'}</a> - {rec.date || '3 hours ago'}
                   </div>
                 </div>
-                <div className="rec-text">
-                  <p>{rec.text}</p>
-                  <div className="rec-meta">Anime recommendation by <span style={{color:"var(--mal-link)"}}>{rec.user}</span></div>
-                </div>
-              </a>
+              </div>
             ))}
           </div>
         </div>
