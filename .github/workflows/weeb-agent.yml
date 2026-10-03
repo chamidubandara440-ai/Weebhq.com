@@ -1,0 +1,36 @@
+name: Weeb Autonomous Agent
+
+on:
+  schedule:
+    - cron: '0 */4 * * *' # Runs every 4 hours
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to push changes back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Weeb Agent
+        env:
+          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
+        run: python scripts/weeb.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "Weeb Agent"
+          git config --global user.email "weeb@weebhq.com"
+          git add content/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-post: Weeb found new anime news! 🚀" && git push)
