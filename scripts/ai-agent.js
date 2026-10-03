@@ -49,9 +49,10 @@ async function runAutomation() {
   const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
   const prompt = `You are a breaking news reporter for an anime website. 
 Write a news update about the anime '${animeTitle}'.
-Return ONLY a valid JSON object with exactly two keys:
+Return ONLY a valid JSON object with exactly three keys:
 1. "snippet": A short 15-word summary for the homepage.
-2. "fullText": A detailed 3-paragraph news article. Use HTML tags (<p>, <strong>, etc) for formatting. Do not include the title in the fullText.`;
+2. "tags": An array of 3 to 5 relevant string tags (e.g. ["Action", "Shounen", "Studio MAPPA", "Crunchyroll"]).
+3. "fullText": A detailed 3-paragraph news article. Use HTML tags (<p>, <strong>, etc) for formatting. Do not include the title in the fullText.`;
   
   let aiData = null;
   let retries = 3;
@@ -63,6 +64,10 @@ Return ONLY a valid JSON object with exactly two keys:
       
       const jsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
       aiData = JSON.parse(jsonStr);
+      // Ensure tags exists
+      if (!Array.isArray(aiData.tags)) {
+         aiData.tags = ["Anime", "Trending", "News"];
+      }
       break; // Success, exit loop
     } catch (e) {
       console.warn(`[Gemini API] Request failed. Retries left: ${retries - 1}. Error: ${e.message}`);
@@ -89,6 +94,7 @@ Return ONLY a valid JSON object with exactly two keys:
 
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const title = `Trending Now: ${animeTitle}`;
+  const tagsYaml = JSON.stringify(aiData.tags);
 
   // Build the markdown content with YAML frontmatter
   const markdownContent = `---
@@ -97,6 +103,7 @@ title: "${title.replace(/"/g, '\\"')}"
 date: "${dateStr}"
 snippet: "${aiData.snippet.trim().replace(/"/g, '\\"')}"
 img: "${animeImg}"
+tags: ${tagsYaml}
 ---
 
 ${aiData.fullText.trim()}
