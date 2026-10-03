@@ -1,6 +1,15 @@
 {
   "reviews": [],
-  "news": [],
+  "news": [
+    {
+      "id": 1790999565730,
+      "title": "Trending Now: Tokyo Revengers: Santen Sensou-hen",
+      "date": "Oct 3, 2026",
+      "snippet": "Tokyo Revengers officially announces the anime adaptation of the explosive Three Deities Arc today!",
+      "fullText": "<p>It's official, delinquent fans! Liden Films and the franchise team have officially announced that <strong>Tokyo Revengers: Santen Sensou-hen</strong> (the <em>Three Deities Arc</em>) is currently in production. Following the intense events of the Tenjiku Arc, this next chapter promises to bring Takemichi Hanagaki back into the fray as he navigates the most dangerous timeline yet in his quest to save Mikey from total darkness.</p><p>The upcoming arc delves directly into the chaotic power vacuum left in Tokyo, leading to an all-out turf war between three massive criminal organizations: Manjiro Sano's <strong>Kantou Manji Gang</strong>, South Terano's <strong>Rokuhara Tandai</strong>, and Senju Kawaragi's <strong>Brahman</strong>. Fans can expect high-stakes drama, incredible fight sequences, and pivotal new character debuts as the three titans collide for supremacy.</p><p>While a specific premiere date and full teaser trailer have not yet been disclosed, production staff promised top-tier animation quality for this highly anticipated continuation. Be sure to bookmark our news feed and follow our social channels as we continue to cover breaking updates, key visuals, and voice cast announcements for <strong>Tokyo Revengers: Santen Sensou-hen</strong>!</p>",
+      "img": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx178083-bg7pg6TCHwtG.jpg"
+    }
+  ],
   "articles": [],
   "recommendations": []
 }
