@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -74,27 +75,42 @@ Return ONLY a valid JSON object with exactly two keys:
     }
   }
 
-  // 3. Save to Database
-  const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  
-  const newArticle = {
-    id: Date.now(),
-    title: `Trending Now: ${animeTitle}`,
-    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    snippet: aiData.snippet.trim(),
-    fullText: aiData.fullText.trim(),
-    img: animeImg
-  };
-
-  dbData.news.unshift(newArticle); // Add to top
-  
-  // Keep only latest 5 news
-  if (dbData.news.length > 5) {
-    dbData.news.pop();
+  // 3. Save to Markdown File
+  const contentDir = path.join(process.cwd(), 'content', 'news');
+  if (!fs.existsSync(contentDir)) {
+    fs.mkdirSync(contentDir, { recursive: true });
   }
 
-  fs.writeFileSync(dbPath, JSON.stringify(dbData, null, 2));
-  console.log("Database updated successfully!");
+  // Create a URL-friendly slug
+  const slug = animeTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+  const timestamp = Date.now();
+  const filename = `${slug}-${timestamp}.md`;
+  const filePath = path.join(contentDir, filename);
+
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const title = `Trending Now: ${animeTitle}`;
+
+  // Build the markdown content with YAML frontmatter
+  const markdownContent = `---
+id: "${timestamp}"
+title: "${title.replace(/"/g, '\\"')}"
+date: "${dateStr}"
+snippet: "${aiData.snippet.trim().replace(/"/g, '\\"')}"
+img: "${animeImg}"
+---
+
+${aiData.fullText.trim()}
+`;
+
+  fs.writeFileSync(filePath, markdownContent);
+  console.log(`Markdown article created successfully: ${filename}`);
+
+  // Workaround for Github Actions: We can't modify the workflow file due to permissions,
+  // so the workflow will still run `git add data/db.json`.
+  // To avoid errors, we touch db.json, and we manually stage the new markdown file here!
+  fs.writeFileSync(dbPath, JSON.stringify(JSON.parse(fs.readFileSync(dbPath, 'utf8')), null, 2));
+  execSync('git add content/news/');
+  console.log('Staged markdown files for commit.');
 }
 
 runAutomation();

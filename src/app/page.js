@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import matter from 'gray-matter';
 
 import HomeClient from './HomeClient';
 
@@ -76,8 +77,32 @@ export default async function Home() {
   }
 
   const reviews = dbData.reviews;
-  const news = dbData.news;
   const recommendations = dbData.recommendations;
+
+  // Read news from markdown files
+  const newsDir = path.join(process.cwd(), 'content', 'news');
+  let news = [];
+  try {
+    if (fs.existsSync(newsDir)) {
+      const files = fs.readdirSync(newsDir).filter(f => f.endsWith('.md'));
+      news = files.map(filename => {
+        const markdownWithMeta = fs.readFileSync(path.join(newsDir, filename), 'utf8');
+        const { data } = matter(markdownWithMeta);
+        return {
+          id: data.id || filename.replace('.md', ''),
+          title: data.title,
+          date: data.date,
+          snippet: data.snippet,
+          img: data.img
+        };
+      });
+      // Sort descending by id/timestamp
+      news.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+      news = news.slice(0, 5); // Only show top 5 on homepage
+    }
+  } catch(e) {
+    console.error("Failed to read news markdown files", e);
+  }
 
   return (
     <HomeClient 

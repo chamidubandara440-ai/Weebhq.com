@@ -1,29 +1,58 @@
 import fs from 'fs';
 import path from 'path';
+import matter from 'gray-matter';
+import { marked } from 'marked';
 
 export function generateStaticParams() {
-  const dbPath = path.join(process.cwd(), 'data', 'db.json');
-  let dbData = { news: [] };
+  const newsDir = path.join(process.cwd(), 'content', 'news');
+  let ids = [];
   try {
-    dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    if (fs.existsSync(newsDir)) {
+      const files = fs.readdirSync(newsDir).filter(f => f.endsWith('.md'));
+      ids = files.map(filename => ({ id: filename.replace('.md', '') }));
+    }
   } catch(e) {}
   
-  let ids = dbData.news.map((n) => ({ id: n.id.toString() }));
-  if (ids.length === 0) ids.push({ id: '1' });
+  if (ids.length === 0) ids.push({ id: '1' }); // Fallback to prevent build errors
   return ids;
 }
 
 export default async function NewsDetail({ params }) {
   const resolvedParams = await params;
-  const dbPath = path.join(process.cwd(), 'data', 'db.json');
-  let dbData = { news: [] };
-  try {
-    dbData = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  } catch(e) {}
+  const { id } = resolvedParams;
 
-  const article = dbData.news.find(n => n.id.toString() === resolvedParams.id) || dbData.news[0];
+  const newsDir = path.join(process.cwd(), 'content', 'news');
+  const filePath = path.join(newsDir, `${id}.md`);
   
-  if (!article) return <div className="main-wrapper" style={{padding: '20px'}}>News not found</div>;
+  let article = null;
+  let htmlContent = "";
+
+  try {
+    if (fs.existsSync(filePath)) {
+      const fileContents = fs.readFileSync(filePath, 'utf8');
+      const { data, content } = matter(fileContents);
+      htmlContent = marked.parse(content);
+      
+      article = {
+        title: data.title,
+        date: data.date,
+        img: data.img,
+        fullText: htmlContent
+      };
+    }
+  } catch(e) {
+    console.error("Failed to read markdown file", e);
+  }
+
+  // Temporary fallback if no markdown files exist yet
+  if (!article) {
+    article = {
+      title: "Sample Anime News",
+      date: "Oct 2026",
+      img: "https://media.kitsu.app/anime/poster_images/12/large.jpg",
+      fullText: "<p>Check back later for exciting AI-generated anime news!</p>"
+    };
+  }
 
   return (
     <div className="main-wrapper news-detail-page">
