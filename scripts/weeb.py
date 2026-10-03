@@ -22,7 +22,7 @@ if API_KEY:
     # Using the fast and lightweight flash model
     model = genai.GenerativeModel('gemini-3.5-flash')
 
-def rewrite_article_with_llm(title, summary, link, category):
+def rewrite_article_with_llm(title, summary, link, category, img_url):
     """
     This function acts as Weeb's brain. 
     It will take the original article and rewrite it using Gemini API.
@@ -39,7 +39,7 @@ id: "{timestamp}"
 title: "{title}"
 date: "{date_str}"
 snippet: "This article was autonomously caught by Weeb!"
-img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-2q1q2Q9X2X2z.png"
+img: "{img_url}"
 author: "Weeb"
 ---
 
@@ -66,7 +66,7 @@ Source: [Read Original]({link})
     title: "<A catchy rewritten title>"
     date: "{date_str}"
     snippet: "<A 1-sentence engaging summary>"
-    img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-2q1q2Q9X2X2z.png"
+    img: "{img_url}"
     author: "Weeb"
     ---
     
@@ -85,7 +85,7 @@ id: "{timestamp}"
 title: "{title}"
 date: "{date_str}"
 snippet: "Weeb tried to rewrite this but got an API error."
-img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-2q1q2Q9X2X2z.png"
+img: "{img_url}"
 author: "Weeb"
 ---
 
@@ -97,6 +97,8 @@ Source: [Read Original]({link})
 (Note: Weeb AI rewriting failed due to API limits/errors.)
 """
 
+import re
+
 def process_feed(category, feed_url):
     print(f"[*] Weeb is reading {category} feed: {feed_url}")
     feed = feedparser.parse(feed_url)
@@ -106,6 +108,15 @@ def process_feed(category, feed_url):
         title = entry.title
         link = entry.link
         summary = entry.get('summary', entry.get('description', ''))
+        
+        # Extract Image
+        img_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png"
+        if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
+            img_url = entry.media_thumbnail[0]['url']
+        else:
+            img_match = re.search(r'<img[^>]+src="([^">]+)"', summary)
+            if img_match:
+                img_url = img_match.group(1)
         
         # Make a safe filename from the title
         safe_title = "".join([c for c in title if c.isalnum() or c==' ']).rstrip()
@@ -120,7 +131,7 @@ def process_feed(category, feed_url):
         print(f"[+] Weeb found new {category}: {title}")
         
         # Ask LLM to rewrite
-        markdown_content = rewrite_article_with_llm(title, summary, link, category)
+        markdown_content = rewrite_article_with_llm(title, summary, link, category, img_url)
         
         # Save the new article to the site
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
