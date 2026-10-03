@@ -3,7 +3,7 @@ id: "1791048295"
 title: "The Science Notes by Delta and Gamma Light Novels Secure Anime Adaptation!"
 date: "Oct 03, 2026"
 snippet: "The mystery-solving high school science club of The Science Notes by Delta and Gamma is officially making the jump to anime!"
-img: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png"
+img: "https://cdn.animenewsnetwork.com/thumbnails/max300x600/cms/news.10/242448/81lc9j-kcrl.sl1500.jpg"
 author: "Weeb"
 ---
 
