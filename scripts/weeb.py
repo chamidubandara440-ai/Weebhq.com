@@ -110,7 +110,7 @@ def process_feed(category, feed_url):
         summary = entry.get('summary', entry.get('description', ''))
         
         # Extract Image
-        img_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png"
+        img_url = f"https://placehold.co/400x600/1a1a24/ffffff?text={category.capitalize()}"
         if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
             img_url = entry.media_thumbnail[0]['url']
         else:
