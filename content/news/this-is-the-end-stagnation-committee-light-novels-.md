@@ -3,7 +3,7 @@ id: "1791048315"
 title: "Apocalypse Incoming! This Is the End Stagnation Committee Light Novels Are Getting an Anime"
 date: "Oct 03, 2026"
 snippet: "Kien Aien's thrilling light novel series 'This Is the End Stagnation Committee' is officially making the jump to the screen with a brand-new anime adaptation!"
-img: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/1200px-React-icon.svg.png"
+img: "https://cdn.animenewsnetwork.com/thumbnails/max300x600/cms/news.10/242449/81nqabhzhrl.ac-uf1000-1000-ql80.jpg"
 author: "Weeb"
 ---
 
