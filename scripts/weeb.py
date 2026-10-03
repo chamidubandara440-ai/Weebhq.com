@@ -20,35 +20,19 @@ RSS_FEEDS = {
 
 # API Keys (Set these in Github Secrets)
 GEMINI_API_KEY = os.environ.get("WEEB_API_KEY", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel('gemini-3.5-flash')
-
-def call_groq_api(prompt):
-    if not GROQ_API_KEY:
-        raise Exception("GROQ_API_KEY not found")
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "llama3-8b-8192",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
-    else:
-        raise Exception(f"Groq API Error: {response.text}")
+    # API 1: Fast model for News
+    gemini_news_model = genai.GenerativeModel('gemini-3.5-flash')
+    # API 2: Pro/Complex model for Reviews & Recommendations
+    gemini_pro_model = genai.GenerativeModel('gemini-3.5-pro')
 
 def rewrite_article_with_llm(title, summary, link, category, img_url):
     """
-    Weeb's brain uses different APIs for different tasks!
-    News -> Gemini API
-    Reviews / Recommendations -> Groq API (Llama 3)
+    Weeb's brain uses 2 different Gemini models for different tasks!
+    News -> API 1 (Gemini 3.5 Flash)
+    Reviews / Recommendations -> API 2 (Gemini 3.5 Pro)
     """
     print(f"[*] Weeb's brain is processing {category}: {title}")
     
@@ -82,14 +66,17 @@ def rewrite_article_with_llm(title, summary, link, category, img_url):
     
     try:
         if category == "news":
-            print("[*] Using Gemini API for News...")
+            print("[*] Using API 1 (Gemini Flash) for News...")
             if not GEMINI_API_KEY:
                 raise Exception("No Gemini Key")
-            response = gemini_model.generate_content(prompt)
+            response = gemini_news_model.generate_content(prompt)
             text = response.text
         else:
-            print(f"[*] Using Groq API for {category.capitalize()}...")
-            text = call_groq_api(prompt)
+            print(f"[*] Using API 2 (Gemini Pro) for {category.capitalize()}...")
+            if not GEMINI_API_KEY:
+                raise Exception("No Gemini Key")
+            response = gemini_pro_model.generate_content(prompt)
+            text = response.text
             
         text = text.replace("```markdown", "").replace("```", "").strip()
         return text
