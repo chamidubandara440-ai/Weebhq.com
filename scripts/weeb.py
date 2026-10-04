@@ -101,6 +101,20 @@ Source: [Read Original]({link})
 (Note: Weeb AI rewriting failed due to API limits/errors.)
 """
 
+import urllib.parse
+
+def get_anime_image(query):
+    try:
+        safe_query = urllib.parse.quote(query)
+        res = requests.get(f"https://api.jikan.moe/v4/anime?q={safe_query}&limit=1", timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if data and "data" in data and len(data["data"]) > 0:
+                return data["data"][0]["images"]["jpg"]["large_image_url"]
+    except Exception as e:
+        print("Jikan API error:", e)
+    return None
+
 import re
 
 def process_feed(category, feed_url):
@@ -114,13 +128,16 @@ def process_feed(category, feed_url):
         summary = entry.get('summary', entry.get('description', ''))
         
         # Extract Image
-        img_url = f"https://placehold.co/400x600/1a1a24/ffffff?text={category.capitalize()}"
-        if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
-            img_url = entry.media_thumbnail[0]['url']
-        else:
-            img_match = re.search(r'<img[^>]+src="([^">]+)"', summary)
-            if img_match:
-                img_url = img_match.group(1)
+        img_url = get_anime_image(title)
+        if not img_url:
+            if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
+                img_url = entry.media_thumbnail[0]['url']
+            else:
+                img_match = re.search(r'<img[^>]+src="([^">]+)"', summary)
+                if img_match:
+                    img_url = img_match.group(1)
+                else:
+                    img_url = f"https://placehold.co/400x600/1a1a24/ffffff?text={category.capitalize()}"
         
         # Make a safe filename from the title
         safe_title = "".join([c for c in title if c.isalnum() or c==' ']).rstrip()

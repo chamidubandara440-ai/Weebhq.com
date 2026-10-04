@@ -241,11 +241,11 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                   {/* Left Side (If you liked) */}
                   <div className="mal-rec-half">
                     <a href={`/anime/${rec.sourceId || 1}`}>
-                      <img src={rec.sourceImg} alt={rec.sourceTitle} className="mal-rec-img" />
+                      <img src={rec.sourceImg || rec.img || "https://placehold.co/400x600/1a1a24/ffffff?text=Anime1"} alt={rec.sourceTitle || rec.title} className="mal-rec-img" />
                     </a>
                     <div className="mal-rec-info">
                       <div className="mal-rec-label">If you liked</div>
-                      <div className="mal-rec-title"><a href={`/anime/${rec.sourceId || 1}`}>{rec.sourceTitle}</a></div>
+                      <div className="mal-rec-title"><a href={`/anime/${rec.sourceId || 1}`}>{rec.sourceTitle || rec.title}</a></div>
                       <span className="mal-review-add">add</span>
                     </div>
                   </div>
@@ -253,11 +253,11 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                   {/* Right Side (...then you might like) */}
                   <div className="mal-rec-half">
                     <a href={`/anime/${rec.recId || 1}`}>
-                      <img src={rec.recImg} alt={rec.recTitle} className="mal-rec-img" />
+                      <img src={rec.recImg || rec.img || "https://placehold.co/400x600/1a1a24/ffffff?text=Anime2"} alt={rec.recTitle || "Recommendation"} className="mal-rec-img" />
                     </a>
                     <div className="mal-rec-info">
                       <div className="mal-rec-label">...then you might like</div>
-                      <div className="mal-rec-title"><a href={`/anime/${rec.recId || 1}`}>{rec.recTitle}</a></div>
+                      <div className="mal-rec-title"><a href={`/anime/${rec.recId || 1}`}>{rec.recTitle || "This Anime"}</a></div>
                       <span className="mal-review-add">add</span>
                     </div>
                   </div>
@@ -265,7 +265,7 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                 </div>
                 
                 <div className="mal-rec-bottom">
-                  <div className="mal-rec-text">{rec.text}</div>
+                  <div className="mal-rec-text">{rec.text || rec.snippet}</div>
                   <div className="mal-rec-footer">
                     Anime rec by <a href="#">{rec.user || 'anonymous'}</a> - {rec.date || '3 hours ago'}
                   </div>
