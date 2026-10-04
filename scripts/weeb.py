@@ -101,18 +101,19 @@ Source: [Read Original]({link})
 (Note: Weeb AI rewriting failed due to API limits/errors.)
 """
 
-import urllib.parse
+from bs4 import BeautifulSoup
+import urllib.request
 
-def get_anime_image(query):
+def get_og_image(url):
     try:
-        safe_query = urllib.parse.quote(query)
-        res = requests.get(f"https://api.jikan.moe/v4/anime?q={safe_query}&limit=1", timeout=5)
-        if res.status_code == 200:
-            data = res.json()
-            if data and "data" in data and len(data["data"]) > 0:
-                return data["data"][0]["images"]["jpg"]["large_image_url"]
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        html = urllib.request.urlopen(req, timeout=10).read()
+        soup = BeautifulSoup(html, 'html.parser')
+        og_img = soup.find('meta', property='og:image')
+        if og_img and og_img.get('content'):
+            return og_img['content']
     except Exception as e:
-        print("Jikan API error:", e)
+        print("Scrape error:", e)
     return None
 
 import re
@@ -127,8 +128,8 @@ def process_feed(category, feed_url):
         link = entry.link
         summary = entry.get('summary', entry.get('description', ''))
         
-        # Extract Image
-        img_url = get_anime_image(title)
+        # Extract Image using OG tag from the actual article!
+        img_url = get_og_image(link)
         if not img_url:
             if hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
                 img_url = entry.media_thumbnail[0]['url']
