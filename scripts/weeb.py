@@ -25,14 +25,14 @@ if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     # API 1: Fast model for News
     gemini_news_model = genai.GenerativeModel('gemini-3.5-flash')
-    # API 2: Pro/Complex model for Reviews & Recommendations
-    gemini_pro_model = genai.GenerativeModel('gemini-3.5-pro')
+    # API 2: Pro/Complex model for Reviews & Recommendations (Changed to Flash to avoid free-tier errors)
+    gemini_pro_model = genai.GenerativeModel('gemini-3.5-flash')
 
 def rewrite_article_with_llm(title, summary, link, category, img_url):
     """
     Weeb's brain uses 2 different Gemini models for different tasks!
     News -> API 1 (Gemini 3.5 Flash)
-    Reviews / Recommendations -> API 2 (Gemini 3.5 Pro)
+    Reviews / Recommendations -> API 2 (Gemini 3.5 Flash)
     """
     print(f"[*] Weeb's brain is processing {category}: {title}")
     
