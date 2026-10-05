@@ -66,13 +66,13 @@ export default function AnimeReviews() {
         <div className="mal-review-page-list" style={{ marginTop: '10px' }}>
           {reviewsList.map(item => (
             <div key={item.id} className="mal-review-item" style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)' }}>
-              <a href={`/anime/${item.id}`}>
+              <a href={`/reviews/${item.id}`}>
                 <img src={item.img} alt={item.title} className="mal-review-img" style={{ width: '80px', height: '115px' }} />
               </a>
               <div className="mal-review-content" style={{ flex: 1 }}>
                 <div className="mal-review-header" style={{ borderBottom: '1px solid var(--mal-border)', paddingBottom: '5px', marginBottom: '5px' }}>
                   <div className="mal-review-title">
-                    <a href={`/anime/${item.id}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>{item.title}</a>
+                    <a href={`/reviews/${item.id}`} style={{ fontSize: '14px', fontWeight: 'bold' }}>{item.title}</a>
                     <span className="mal-review-add" style={{ marginLeft: '10px' }}>add</span>
                   </div>
                   <div className="mal-review-score">Overall Rating: <strong>{item.score}</strong></div>

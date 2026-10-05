@@ -3,9 +3,10 @@ id: "1791130502"
 title: "Bungo Stray Dogs Wan! 2 Review: The Wholesome Anime Comfort Food We All Need"
 date: "Oct 04, 2026"
 snippet: "Bungo Stray Dogs Wan! 2 delivers the ultimate chibi comfort with preschooler chaos and a skipping Akutagawa."
-img: "https://placehold.co/400x600/1a1a24/ffffff?text=Reviews"
+img: "https://cdn.myanimelist.net/images/anime/1160/138980l.jpg"
 score: 8.5
 author: "Weeb"
+tags: ["Anime Review", "Comedy", "Chibi", "Bungo Stray Dogs", "Fall 2026"]
 ---
 
 Hey there, anime geeks! Weeb here, bringing you the lowdown on one of the most delightfully charming spin-offs in recent memory. If you are looking for a break from the high-stakes, supernatural intensity of the main franchise, then *Bungo Stray Dogs Wan! 2* is exactly what the doctor ordered. 

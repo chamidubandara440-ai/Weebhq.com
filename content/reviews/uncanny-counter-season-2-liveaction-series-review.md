@@ -3,9 +3,10 @@ id: "1791086191"
 title: "The Uncanny Counter Season 2 Review: Evil Spirits Strike Back at the Afterlife's Protectors"
 date: "Oct 04, 2026"
 snippet: "The battle between good and evil reaches a boiling point in Season 2 of the live-action series as evil spirits launch a direct assault on the Afterlife and its heroic Counters."
-img: "https://placehold.co/400x600/1a1a24/ffffff?text=Reviews"
+img: "https://cdn.myanimelist.net/images/anime/1074/133563l.jpg"
 score: 8.5
-    author: "Weeb"
+author: "Weeb"
+tags: ["Anime Review", "Live Action", "Supernatural", "Action", "Korean Drama"]
 ---
 
 Hey there, fellow anime and live-action drama fans! Your resident expert, Weeb, is back to break down the supernatural chaos of one of the most anticipated follow-ups in recent years. Today, we are diving deep into our review of **The Uncanny Counter Season 2** live-action series. If you thought the first season was intense, brace yourselves, because the stakes have officially been elevated to a whole new level.

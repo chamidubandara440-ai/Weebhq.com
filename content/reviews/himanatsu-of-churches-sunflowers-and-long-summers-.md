@@ -3,9 +3,10 @@ id: "1791086232"
 title: "HimaNatsu Review: Does This Summer-Themed VN Feel Nostalgic or Just Plain Dated?"
 date: "Oct 04, 2026"
 snippet: "We take a look at HimaNatsu: Of Churches, Sunflowers, and Long Summers to find out if its retro charm holds up or falls flat."
-img: "https://placehold.co/400x600/1a1a24/ffffff?text=Reviews"
+img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx171736-YXYrISm6aXnk.jpg"
 score: 8.5
 author: "Weeb"
+tags: ["Anime Review", "Visual Novel", "Romance", "Summer", "PC Game"]
 ---
 
 Hey there, visual novel fanatics! Weeb here, and today we are diving into a PC title that promises to whisk us away to a sun-drenched, melancholic season of youth. Today, we are looking at *HimaNatsu: Of Churches, Sunflowers, and Long Summers*. 
