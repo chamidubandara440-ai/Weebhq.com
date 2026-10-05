@@ -1,73 +1,76 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
-
 import HomeClient from './HomeClient';
 
-const fetchAnilist = async () => {
-  const query = `
-  query {
-    airing: Page(page: 1, perPage: 5) {
-      media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC) {
-        id title { romaji english } coverImage { large } averageScore
-      }
-    }
-    upcoming: Page(page: 1, perPage: 5) {
-      media(type: ANIME, status: NOT_YET_RELEASED, sort: POPULARITY_DESC) {
-        id title { romaji english } coverImage { large } averageScore
-      }
-    }
-    seasonal: Page(page: 1, perPage: 6) {
-      media(type: ANIME, season: FALL, seasonYear: 2026, sort: POPULARITY_DESC) {
-        id title { romaji english } coverImage { large } format episodes averageScore popularity description(asHtml: false)
-      }
-    }
-  }`;
-
+const fetchApi = async () => {
   try {
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query })
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.data;
+    const [res1, res2] = await Promise.all([
+      fetch('https://weebhq-api.chamidubandara440.workers.dev/api/anime?limit=50', { cache: 'no-store' }),
+      fetch('https://weebhq-api.chamidubandara440.workers.dev/api/anime?limit=50&offset=50', { cache: 'no-store' })
+    ]);
+    let combinedData = [];
+    if (res1.ok) {
+      const j1 = await res1.json();
+      if (j1.data) combinedData.push(...j1.data);
+    }
+    if (res2.ok) {
+      const j2 = await res2.json();
+      if (j2.data) combinedData.push(...j2.data);
+    }
+    return combinedData;
   } catch (e) {
-    return null;
+    return [];
   }
 };
 
 export default async function Home() {
-  const data = await fetchAnilist();
+  const rawData = await fetchApi();
+  let topAiring = null;
+  let topUpcoming = null;
+  let seasonal = null;
 
-  const topAiring = data?.airing?.media ? data.airing.media.map((anime, index) => ({
-    rank: index + 1,
-    title: anime.title.english || anime.title.romaji,
-    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
-    img: anime.coverImage.large,
-    id: anime.id
-  })) : null;
+  if (rawData && rawData.length > 0) {
+    const airingFiltered = rawData.filter(a => a.status && (a.status.toLowerCase() === 'currently airing' || a.status === 'releasing'));
+    if (airingFiltered.length > 0) {
+      topAiring = airingFiltered.slice(0, 5).map((anime, index) => ({
+        rank: index + 1,
+        title: anime.title_english || anime.title,
+        score: anime.score != null ? anime.score.toFixed(2) : 'N/A',
+        img: anime.image_url,
+        id: anime.id
+      }));
+    }
+    // "Not yet aired" is the exact Tenrai status string for upcoming anime.
+    // Fall back to top-scored currently-airing if none exist yet in the database.
+    const upcomingStatuses = ['not yet aired', 'not yet released', 'not_yet_released', 'upcoming'];
+    let upcomingFiltered = rawData.filter(a => a.status && upcomingStatuses.some(s => a.status.toLowerCase().includes(s)));
+    if (upcomingFiltered.length === 0) {
+      // No upcoming records in DB yet — show top currently-airing as a safe fallback
+      upcomingFiltered = rawData.filter(a => a.status && (a.status.toLowerCase() === 'currently airing' || a.status === 'releasing')).slice(0, 5);
+    }
+    // Always set to an array (even empty) so the section never gets stuck on "Loading data..."
+    topUpcoming = upcomingFiltered.slice(0, 5).map((anime, index) => ({
+      rank: index + 1,
+      title: anime.title_english || anime.title,
+      score: anime.score != null ? anime.score.toFixed(2) : 'N/A',
+      img: anime.image_url,
+      id: anime.id
+    }));
+    const seasonalFiltered = rawData.filter(a => a.season && a.season.toLowerCase() === 'fall' && a.season_year === 2026);
+    if (seasonalFiltered.length > 0) {
+      seasonal = seasonalFiltered.slice(0, 6).map((anime) => ({
+        id: anime.id,
+        title: anime.title_english || anime.title,
+        img: anime.image_url,
+        type: anime.anime_type || 'TV',
+        eps: anime.episodes ? anime.episodes + ' eps' : '? eps',
+        score: anime.score != null ? anime.score.toFixed(2) : 'N/A',
+        snippet: anime.synopsis ? anime.synopsis.substring(0, 100) + '...' : ''
+      }));
+    }
+  }
 
-  const topUpcoming = data?.upcoming?.media ? data.upcoming.media.map((anime, index) => ({
-    rank: index + 1,
-    title: anime.title.english || anime.title.romaji,
-    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
-    img: anime.coverImage.large,
-    id: anime.id
-  })) : null;
-
-  const seasonal = data?.seasonal?.media ? data.seasonal.media.map((anime) => ({
-    id: anime.id,
-    title: anime.title.english || anime.title.romaji,
-    img: anime.coverImage.large,
-    type: anime.format || "TV",
-    eps: anime.episodes ? `${anime.episodes} eps` : "? eps",
-    score: anime.averageScore ? (anime.averageScore / 10).toFixed(2) : "N/A",
-    snippet: anime.description ? anime.description.substring(0, 100) + '...' : ''
-  })) : null;
-
-  // Helper function to read markdown files from a directory
   const readMarkdownDir = (dirName, limit) => {
     const dirPath = path.join(process.cwd(), 'content', dirName);
     let items = [];
