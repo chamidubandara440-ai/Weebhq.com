@@ -3,6 +3,7 @@ import re
 import json
 import time
 import requests
+import yaml                  # PyYAML - safe YAML serialization
 from datetime import datetime, date
 
 import google.generativeai as genai
@@ -113,15 +114,14 @@ def weebhq_get(endpoint, params=None):
 def fetch_candidate_anime():
     """
     Priority order for candidate anime:
-      1. Currently airing (from Tenrai top/anime — these have the most data)
+      1. Currently airing (from Tenrai top/anime)
       2. Upcoming (from our Worker /api/anime/upcoming)
-      3. Stored anime in D1 (from our Worker /api/anime, sorted by score)
+      3. Stored anime in D1 (from our Worker /api/anime)
     All sources are deduplicated by MAL ID.
     """
     candidates = []
     seen = set()
 
-    # 1. Top / currently airing from Tenrai
     log("Fetching current season anime from Tenrai...")
     data = tenrai_get("/top/anime", {"page": 1, "limit": 20})
     if data and "data" in data:
@@ -131,7 +131,6 @@ def fetch_candidate_anime():
                 seen.add(mid)
                 candidates.append(_normalise_tenrai(item))
 
-    # 2. Upcoming from our Worker
     log("Fetching upcoming anime from WeebHQ API...")
     upcoming = weebhq_get("/api/anime/upcoming")
     if upcoming and "data" in upcoming:
@@ -141,7 +140,6 @@ def fetch_candidate_anime():
                 seen.add(mid)
                 candidates.append(_normalise_worker(item))
 
-    # 3. D1-stored anime (fallback — already imported titles)
     log("Fetching stored anime from WeebHQ D1...")
     stored = weebhq_get("/api/anime", {"limit": 30, "offset": 0})
     if stored and "data" in stored:
@@ -206,7 +204,6 @@ def _normalise_tenrai(item):
 
 def _normalise_worker(item):
     """Map a WeebHQ Worker/D1 item to our internal candidate dict."""
-    # D1 stores studios as a JSON string or comma-separated
     studios_raw = item.get("studios") or ""
     try:
         studios = json.loads(studios_raw) if studios_raw.startswith("[") else [s.strip() for s in studios_raw.split(",") if s.strip()]
@@ -232,7 +229,7 @@ def _normalise_worker(item):
         "score":        item.get("score"),
         "popularity":   item.get("popularity"),
         "members":      item.get("members"),
-        "genres":       [],      # D1 basic endpoint doesn't include genres list
+        "genres":       [],
         "studios":      studios,
         "themes":       [],
         "synopsis":     (item.get("synopsis") or "").strip(),
@@ -242,10 +239,7 @@ def _normalise_worker(item):
 
 
 def enrich_from_tenrai(anime_id):
-    """
-    If a Worker/D1 candidate has missing synopsis/genres,
-    try to fetch it directly from Tenrai by MAL ID.
-    """
+    """Fetch full Tenrai data for a D1 candidate with missing synopsis."""
     time.sleep(REQUEST_DELAY)
     try:
         r = requests.get(
@@ -264,11 +258,9 @@ def enrich_from_tenrai(anime_id):
 
 # ── Fact block for Gemini ─────────────────────────────────────
 def build_fact_block(a):
-    """Build a structured, honest fact string from our normalised dict."""
     genres  = ", ".join(a["genres"])  or "N/A"
     studios = ", ".join(a["studios"]) or "N/A"
     themes  = ", ".join(a["themes"])  or "N/A"
-
     synopsis = (a.get("synopsis") or "No synopsis available.")[:1500]
 
     return f"""
@@ -298,11 +290,11 @@ def build_prompt(fact_block, season_str, today_str):
     return f"""
 You are a professional anime critic writing for WeebHQ.com.
 
-CRITICAL RULES — READ FIRST:
+CRITICAL RULES - READ FIRST:
 1. Only use the supplied FACTUAL ANIME DATA for any factual claims.
 2. Do NOT invent episode events, character names, staff names, plot details, dates, or ratings not in the data.
 3. Clearly distinguish analysis and opinion from stated facts.
-4. If a section lacks sufficient data, write 1–2 honest sentences noting the limitation instead of fabricating.
+4. If a section lacks sufficient data, write 1-2 honest sentences noting the limitation instead of fabricating.
 5. Do not copy/paste the synopsis verbatim. Write original prose.
 6. Do NOT include spoilers unless inside a section explicitly marked "Spoiler Warning".
 7. Keep the tone engaging, natural, and SEO-friendly.
@@ -315,10 +307,10 @@ TODAY: {today_str}
 
 {fact_block}
 
-Return ONLY valid JSON — no markdown fences, no extra text outside the JSON.
+Return ONLY valid JSON - no markdown fences, no extra text outside the JSON.
 Use this exact structure:
 {{
-  "title":        "Engaging article headline (e.g. 'Anime Title Review: One-line hook')",
+  "title":        "Engaging article headline",
   "slug":         "anime-title-review",
   "anime_title":  "Anime title as shown on WeebHQ",
   "season":       "{season_str}",
@@ -330,9 +322,9 @@ Use this exact structure:
   "article_body": "Full Markdown text starting with ## Overview, then all required headings in order"
 }}
 
-Rules for the JSON values:
+Rules:
 - rating: float between 1.0 and 10.0
-- slug: lowercase a–z, 0–9, hyphens only, max 80 chars
+- slug: lowercase a-z, 0-9, hyphens only, max 80 chars
 - article_body must contain ALL 9 headings listed above, in order
 - description: max 160 characters
 """.strip()
@@ -377,7 +369,6 @@ def validate_result(data, existing_ids, existing_slugs):
     if slug in existing_slugs:
         errors.append(f"slug already exists: {slug}")
 
-    # Validate EXACT heading strings (same as what the prompt specifies)
     body = data.get("article_body", "")
     missing_h = [h for h in REQUIRED_HEADINGS if h not in body]
     if missing_h:
@@ -386,36 +377,77 @@ def validate_result(data, existing_ids, existing_slugs):
     return errors
 
 
-# ── Markdown builder ──────────────────────────────────────────
+def validate_markdown(md_text):
+    """
+    Parse the generated Markdown with PyYAML to catch any YAML errors
+    BEFORE the file is written to disk.
+    Returns (ok: bool, error_msg: str)
+    """
+    try:
+        # Extract frontmatter block between first two --- delimiters
+        if not md_text.startswith("---"):
+            return False, "Markdown does not start with --- frontmatter"
+        end = md_text.index("\n---", 3)
+        fm_block = md_text[3:end].strip()
+        parsed = yaml.safe_load(fm_block)
+        if not isinstance(parsed, dict):
+            return False, f"Frontmatter parsed to {type(parsed).__name__}, expected dict"
+        # Check required keys
+        for key in ("title", "slug", "anime_id", "rating"):
+            if key not in parsed:
+                return False, f"Required frontmatter key missing: {key}"
+        return True, ""
+    except yaml.YAMLError as e:
+        return False, f"YAML parse error: {e}"
+    except ValueError as e:
+        return False, f"Could not find closing ---: {e}"
+    except Exception as e:
+        return False, f"Unexpected validation error: {e}"
+
+
+# ── Safe YAML frontmatter builder ─────────────────────────────
 def build_markdown(data, anime):
+    """
+    Build the full Markdown string with PyYAML-serialised frontmatter.
+    This safely handles titles/descriptions with colons, quotes,
+    apostrophes, brackets, hashes, and other YAML-special characters.
+    """
     today        = date.today().isoformat()
-    tags_yaml    = "\n".join(f"  - {t}" for t in (data.get("tags") or ["Anime Review"]))
     cover        = anime.get("image_url") or ""
     rating_val   = round(float(data.get("rating", 7.5)), 1)
     season_str   = data.get("season") or anime.get("season") or ""
     release_date = data.get("release_date") or anime.get("release_date") or today
-    anime_id     = anime.get("id") or ""
+    anime_id_str = anime.get("id") or ""
 
-    frontmatter = f"""---
-title: "{data['title'].replace('"', "'")}"
-slug: "{data['slug']}"
-category: "Latest Anime Reviews"
-anime_title: "{data['anime_title'].replace('"', "'")}"
-anime_id: {anime_id}
-season: "{season_str}"
-release_date: "{release_date}"
-author: "WeebHQ"
-published_at: "{today}"
-updated_at: "{today}"
-cover_image: "{cover}"
-rating: {rating_val}
-status: "published"
-tags:
-{tags_yaml}
-description: "{data['description'][:160].replace('"', "'")}"
-featured: false
----"""
-    return frontmatter + "\n\n" + data["article_body"].strip() + "\n"
+    # Build the frontmatter dict — PyYAML will safely quote/escape all values
+    fm = {
+        "title":        data["title"],
+        "slug":         data["slug"],
+        "category":     "Latest Anime Reviews",
+        "anime_title":  data["anime_title"],
+        "anime_id":     int(anime_id_str) if anime_id_str.isdigit() else anime_id_str,
+        "season":       season_str,
+        "release_date": release_date,
+        "author":       "WeebHQ",
+        "published_at": today,
+        "updated_at":   today,
+        "cover_image":  cover,
+        "rating":       rating_val,
+        "status":       "published",
+        "tags":         data.get("tags") or ["Anime Review"],
+        "description":  data["description"][:160],
+        "featured":     False,
+    }
+
+    # Use PyYAML's safe dumper — handles all special chars automatically
+    fm_yaml = yaml.dump(
+        fm,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    ).rstrip()
+
+    return f"---\n{fm_yaml}\n---\n\n{data['article_body'].strip()}\n"
 
 
 # ── Main ──────────────────────────────────────────────────────
@@ -456,7 +488,7 @@ def main():
 
         log(f"Found eligible anime: {title} (ID {anime_id})")
 
-        # Enrich from Tenrai if synopsis is missing (e.g. D1 candidates)
+        # Enrich from Tenrai if synopsis is missing
         synopsis = anime.get("synopsis", "")
         if len(synopsis) < 50 and anime.get("_source") == "worker":
             log(f"Synopsis short ({len(synopsis)} chars) — enriching from Tenrai...")
@@ -497,7 +529,17 @@ def main():
 
         log("Gemini generation successful")
 
+        # Build the Markdown with safe PyYAML serialization
         md_content = build_markdown(result, anime)
+
+        # ── Pre-write YAML validation ──────────────────────────────────
+        ok, err = validate_markdown(md_content)
+        if not ok:
+            log(f"YAML validation failed for {title}: {err}. Skipping — no file written.")
+            continue
+
+        log("Frontmatter YAML validated successfully")
+
         slug       = result["slug"]
         filepath   = os.path.join(CONTENT_DIR, slug + ".md")
 

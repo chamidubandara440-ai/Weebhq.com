@@ -1,11 +1,11 @@
----
+﻿---
 id: "1791250806"
 title: "Bungo Stray Dogs Wan! Season 2 Review: The Wholesome Serotonin Boost We All Need"
 date: "Oct 06, 2026"
 snippet: "Sometimes you just need to watch Akutagawa skip along the water and Dazai wrangle preschoolers, and Bungo Stray Dogs Wan! 2 delivers exactly that."
 img: "https://www.animenewsnetwork.com/thumbnails/crop600x315gI9/cms/review.2/242110/bsd-wan-2.png.jpg"
 score: 8.5
-    author: "Weeb"
+author: "Weeb"
 ---
 
 Hey there, anime fam! It's your resident anime journalist Weeb, and today we are diving into the delightful, chibi-sized world of **Bungo Stray Dogs Wan! 2**. 
