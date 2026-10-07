@@ -3,10 +3,13 @@ WeebHQ News Bot
 ===============
 Fetches fresh anime news from AnimeNewsNetwork RSS,
 generates a high-quality article using OpenRouter (google/gemma-4-31b-it:free),
-and saves it to: content/articles/anime-news/<slug>.md
+and saves it to: content/news/<slug>.md
+
+The frontmatter is fully compatible with src/app/news/page.js which reads:
+  id, title, date, snippet, img, author
 
 Environment variables:
-  OPENROUTER_API_KEY  – required for AI generation
+  OPENROUTER_API_KEY  - required for AI generation
 """
 
 import os
@@ -33,10 +36,11 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_MODEL    = "google/gemma-4-31b-it:free"
 OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
 
-CONTENT_DIR = os.path.join("content", "articles", "anime-news")
+# Must match what src/app/news/page.js reads from
+CONTENT_DIR = os.path.join("content", "news")
 
-MAX_ARTICLES_PER_RUN = 2     # Safety cap
-REQUEST_DELAY        = 2.0   # Seconds between API calls
+MAX_ARTICLES_PER_RUN = 2
+REQUEST_DELAY        = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +50,7 @@ def log(msg):
     print(f"[News Bot] {msg}", flush=True)
 
 
-def slugify(text: str) -> str:
+def slugify(text):
     text = text.lower().strip()
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"[\s_]+", "-", text)
@@ -54,7 +58,7 @@ def slugify(text: str) -> str:
     return text[:80].strip("-")
 
 
-def existing_slugs() -> set:
+def existing_slugs():
     slugs = set()
     if not os.path.exists(CONTENT_DIR):
         return slugs
@@ -64,7 +68,7 @@ def existing_slugs() -> set:
     return slugs
 
 
-def get_og_image(url: str) -> str:
+def get_og_image(url):
     try:
         req = urllib.request.Request(
             url, headers={"User-Agent": "Mozilla/5.0 (WeebHQ News Bot)"}
@@ -75,24 +79,18 @@ def get_og_image(url: str) -> str:
         if tag and tag.get("content"):
             return tag["content"]
     except Exception as e:
-        log(f"OG image scrape failed for {url}: {e}")
+        log(f"OG image fetch failed: {e}")
     return ""
 
 
-def clean_html(raw: str) -> str:
+def clean_html(raw):
     return BeautifulSoup(raw, "html.parser").get_text(separator=" ").strip()
-
-
-def entry_id(entry) -> str:
-    """Stable ID for dedup – based on link or title hash."""
-    raw = getattr(entry, "link", None) or getattr(entry, "title", "")
-    return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
 # ---------------------------------------------------------------------------
 # OpenRouter call with retry
 # ---------------------------------------------------------------------------
-def call_openrouter(system_prompt: str, user_prompt: str, max_retries: int = 3) -> str:
+def call_openrouter(system_prompt, user_prompt, max_retries=3):
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY not set")
 
@@ -122,47 +120,45 @@ def call_openrouter(system_prompt: str, user_prompt: str, max_retries: int = 3) 
             )
             if resp.status_code in (429, 500, 502, 503, 504):
                 wait = 2 ** attempt
-                log(f"OpenRouter {resp.status_code} – retrying in {wait}s (attempt {attempt})")
+                log(f"OpenRouter {resp.status_code} – retrying in {wait}s")
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+            return resp.json()["choices"][0]["message"]["content"].strip()
         except (requests.RequestException, KeyError, IndexError) as e:
             if attempt == max_retries:
                 raise
-            log(f"OpenRouter error (attempt {attempt}): {e} – retrying...")
+            log(f"OpenRouter error (attempt {attempt}): {e}")
             time.sleep(2 ** attempt)
 
     raise RuntimeError("OpenRouter max retries exceeded")
 
 
 # ---------------------------------------------------------------------------
-# Article generation
+# Prompts
 # ---------------------------------------------------------------------------
 SYSTEM_PROMPT = """\
 You are a professional anime journalist writing for WeebHQ.com.
-Your task is to produce a factual, engaging anime news article.
+Produce a factual, engaging anime news article.
 
 Rules:
 1. Base the article ONLY on the source information provided. Do NOT invent facts.
-2. Do NOT fabricate quotes, release dates, or character/plot details not in the source.
-3. Write in clean British English.
-4. The article body must have at least 3 paragraphs and use proper Markdown headings.
-5. Return ONLY a valid JSON object. No extra text, no markdown code fences.
+2. Do NOT fabricate quotes, release dates, or details not in the source.
+3. Write in clean English.
+4. Return ONLY a valid JSON object. No extra text, no markdown code fences.
 
 JSON schema:
 {
   "title": "<SEO-friendly article title (max 90 chars)>",
   "slug": "<url-safe slug, lowercase, hyphens only, max 70 chars>",
-  "description": "<meta description, 120–160 chars>",
+  "description": "<meta description, 120-160 chars>",
   "tags": ["<tag1>", "<tag2>"],
-  "article_body": "<full Markdown article body with ## headings>"
+  "article_body": "<full Markdown article body with ## headings, min 3 paragraphs>"
 }
 """
 
 
-def build_user_prompt(entry) -> str:
+def build_user_prompt(entry):
     title   = getattr(entry, "title", "")
     summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
     link    = getattr(entry, "link", "")
@@ -173,58 +169,61 @@ Source Information
 ==================
 Title:     {title}
 Published: {pub}
-Source URL (for reference only – do NOT link to it in the article): {link}
 Summary:
 {summary}
 
 Task
 ====
 Write a complete anime news article for WeebHQ based solely on the source above.
-Return only the JSON object described in the system prompt.
+Return only the JSON object.
 """
 
 
-def deterministic_fallback(entry, img_url: str) -> dict | None:
-    """
-    When AI fails, build a minimal but clean article from RSS data only.
-    Returns None if there is not enough data to publish.
-    """
+# ---------------------------------------------------------------------------
+# Deterministic fallback (when AI is unavailable)
+# ---------------------------------------------------------------------------
+def deterministic_fallback(entry):
     title   = getattr(entry, "title", "").strip()
     summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
-    link    = getattr(entry, "link", "")
 
     if not title or len(summary) < 40:
         return None
 
-    slug = slugify(title)
-    description = summary[:155] + ("…" if len(summary) > 155 else "")
-    body = f"## News\n\n{summary}\n"
-
     return {
         "title":        title[:90],
-        "slug":         slug,
-        "description":  description,
+        "slug":         slugify(title),
+        "description":  summary[:155] + ("..." if len(summary) > 155 else ""),
         "tags":         ["Anime News"],
-        "article_body": body,
+        "article_body": f"## News\n\n{summary}\n",
     }
 
 
 # ---------------------------------------------------------------------------
-# Markdown builder
+# Markdown builder - compatible with src/app/news/page.js frontmatter schema
 # ---------------------------------------------------------------------------
-def build_markdown(data: dict, entry, img_url: str) -> str:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    now   = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def build_markdown(data, img_url):
+    now        = datetime.now(timezone.utc)
+    timestamp  = str(int(now.timestamp()))
+    date_human = now.strftime("%b %d, %Y")
+    date_iso   = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    description = data.get("description", "")
+    snippet = description[:150] + ("..." if len(description) > 150 else "")
+
+    # Frontmatter compatible with news/page.js reader
     fm = {
+        "id":           timestamp,
         "title":        data["title"],
         "slug":         data["slug"],
         "category":     "Anime News",
-        "description":  data["description"],
-        "cover_image":  img_url,
+        "date":         date_human,
+        "snippet":      snippet,
+        "img":          img_url if img_url else "https://placehold.co/400x600/1a1a24/ffffff?text=News",
+        "description":  description,
+        "cover_image":  img_url if img_url else "",
         "author":       "WeebHQ News",
-        "published_at": now,
-        "date":         today,
+        "published_at": date_iso,
+        "score":        8.5,
         "tags":         data.get("tags", ["Anime News"]),
         "status":       "published",
     }
@@ -239,8 +238,7 @@ def build_markdown(data: dict, entry, img_url: str) -> str:
     return f"---\n{fm_yaml}\n---\n\n{data['article_body'].strip()}\n"
 
 
-def validate_markdown(md: str) -> tuple[bool, str]:
-    """Pre-write frontmatter YAML validation."""
+def validate_markdown(md):
     try:
         if not md.startswith("---"):
             return False, "Missing opening ---"
@@ -248,7 +246,7 @@ def validate_markdown(md: str) -> tuple[bool, str]:
         parsed = yaml.safe_load(md[3:end].strip())
         if not isinstance(parsed, dict):
             return False, "Frontmatter is not a dict"
-        for key in ("title", "slug", "category"):
+        for key in ("id", "title", "slug", "date", "snippet", "img"):
             if key not in parsed:
                 return False, f"Missing required key: {key}"
         return True, ""
@@ -266,7 +264,7 @@ def main():
 
     os.makedirs(CONTENT_DIR, exist_ok=True)
     known_slugs = existing_slugs()
-    log(f"Existing articles: {len(known_slugs)}")
+    log(f"Existing articles in content/news: {len(known_slugs)}")
 
     published = 0
 
@@ -276,9 +274,8 @@ def main():
 
         log(f"Fetching feed: {feed_url}")
         feed = feedparser.parse(feed_url)
-        entries = feed.entries[:5]  # Look at 5 most recent
 
-        for entry in entries:
+        for entry in feed.entries[:5]:
             if published >= MAX_ARTICLES_PER_RUN:
                 break
 
@@ -292,45 +289,39 @@ def main():
                 continue
 
             log(f"Processing: {title}")
-
             link    = getattr(entry, "link", "")
             img_url = get_og_image(link) if link else ""
 
-            # --- AI generation ---
+            # AI generation
             data = None
             if OPENROUTER_API_KEY:
                 try:
                     raw = call_openrouter(SYSTEM_PROMPT, build_user_prompt(entry))
-                    # Strip any accidental code fences
                     raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
                     raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
                     data = json.loads(raw.strip())
-                    # Validate slug safety
                     if not re.match(r"^[a-z0-9-]+$", data.get("slug", "")):
                         data["slug"] = candidate_slug
                     log("AI generation succeeded")
                 except Exception as e:
-                    log(f"AI generation failed: {e} – trying deterministic fallback")
+                    log(f"AI failed: {e} – using deterministic fallback")
                     data = None
             else:
                 log("No OPENROUTER_API_KEY – using deterministic fallback")
 
-            # --- Deterministic fallback ---
             if not data:
-                data = deterministic_fallback(entry, img_url)
+                data = deterministic_fallback(entry)
                 if not data:
-                    log(f"Not enough data to publish: {title}. Skipping.")
+                    log(f"Insufficient data to publish: {title}. Skipping.")
                     continue
-                log("Using deterministic fallback article")
+                log("Using deterministic fallback")
 
-            # Ensure slug does not already exist
             slug = data.get("slug", candidate_slug) or candidate_slug
             if slug in known_slugs:
                 log(f"Slug collision: {slug}. Skipping.")
                 continue
 
-            # Build and validate Markdown
-            md = build_markdown(data, entry, img_url)
+            md = build_markdown(data, img_url)
             ok, err = validate_markdown(md)
             if not ok:
                 log(f"Frontmatter validation failed: {err}. Skipping.")
@@ -338,7 +329,7 @@ def main():
 
             filepath = os.path.join(CONTENT_DIR, slug + ".md")
             if os.path.exists(filepath):
-                log(f"File already exists: {filepath}. Skipping.")
+                log(f"File exists: {filepath}. Skipping.")
                 continue
 
             with open(filepath, "w", encoding="utf-8") as f:

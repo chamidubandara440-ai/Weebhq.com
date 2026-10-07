@@ -39,7 +39,7 @@ jobs:
           git config --global user.name "WeebHQ News Bot"
           git config --global user.email "news@weebhq.com"
           git pull --rebase origin main || true
-          git add content/articles/anime-news/
+          git add content/news/
           if ! git diff --staged --quiet; then
             git commit -m "feat: auto-publish anime news article"
             git push origin main
