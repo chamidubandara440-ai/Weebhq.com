@@ -28,6 +28,31 @@ if GEMINI_API_KEY:
     # API 2: Pro/Complex model for Reviews & Recommendations (Changed to Flash to avoid free-tier errors)
     gemini_pro_model = genai.GenerativeModel('gemini-3.5-flash')
 
+def create_raw_article(title, summary, link, category, img_url):
+    timestamp = int(time.time())
+    date_str = datetime.now().strftime('%b %d, %Y')
+    clean_snippet = BeautifulSoup(summary, "html.parser").get_text(separator=" ").strip()
+    clean_snippet = " ".join(clean_snippet.split())[:150] + "..."
+    
+    # safe replace
+    title_safe = title.replace('"', "'")
+    snippet_safe = clean_snippet.replace('"', "'")
+    
+    return f"""---
+id: "{timestamp}"
+title: "{title_safe}"
+date: "{date_str}"
+snippet: "{snippet_safe}"
+img: "{img_url}"
+score: 8.5
+author: "WeebHQ News"
+---
+
+{summary}
+
+[Read the full original article here]({link})
+"""
+
 def rewrite_article_with_llm(title, summary, link, category, img_url):
     """
     Weeb's brain uses 2 different Gemini models for different tasks!
