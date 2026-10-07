@@ -1,10 +1,13 @@
-﻿name: WeebHQ Build & Deploy
+﻿name: WeebHQ Build Verify
+
+# This workflow validates that the Next.js build succeeds after every push.
+# Cloudflare Pages handles the actual deployment automatically on push to main.
+# Do NOT add GitHub Pages deployment here - weebhq.com uses Cloudflare Pages.
 
 on:
   push:
     branches:
       - main
-    # Only trigger when content or source code changes, NOT when only workflows change
     paths:
       - 'content/**'
       - 'src/**'
@@ -12,18 +15,17 @@ on:
       - 'next.config.mjs'
       - 'package.json'
       - 'package-lock.json'
+  workflow_dispatch:
 
 concurrency:
-  group: deploy
+  group: build-verify
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build-verify:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -45,18 +47,9 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Verify output
+      - name: Verify news articles in output
         run: |
-          echo "Build output files:"
-          ls -la out/ | head -20
-          echo "News articles in out:"
-          find out/ -name "*.html" | grep -i news | head -20
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: out/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          echo "=== News pages in out/ ==="
+          find out/ -path "*/news/*" -name "*.html" | sort
+          echo "=== Total static pages ==="
+          find out/ -name "*.html" | wc -l
