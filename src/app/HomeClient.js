@@ -96,7 +96,7 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
           <div className="ranking-info">
             <div className="ranking-title-row">
               <h4><a href={`/anime/${anime.id}`}>{anime.title}</a></h4>
-              <span className="mal-review-add">add</span>
+              
             </div>
             <div className="ranking-meta">
               {anime.type}, {anime.eps} eps
@@ -141,11 +141,11 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                 <div className="mal-review-img-col"><a href={`/reviews/${review.id}`}><img src={review.img} alt={review.title} className="mal-review-img" /></a></div>
                 <div className="mal-review-content">
                   <div className="mal-review-header">
-                    <div className="mal-review-title"><a href={`/reviews/${review.id}`}>{review.title}</a><span className="mal-review-add">add</span></div>
+                    <div className="mal-review-title"><a href={`/reviews/${review.id}`}>{review.title}</a></div>
                     <div className="mal-review-score">Overall Rating: {review.score || '9'}</div>
                   </div>
                   <div className="mal-review-body">{review.snippet} <a href={`/reviews/${review.id}`}>read more</a></div>
-                  <div className="mal-review-footer">{review.date} by <a href="#">{review.user || 'anonymous'}</a></div>
+                  <div className="mal-review-footer">{review.date} by WeebHQ</div>
                 </div>
               </div>
             ))}
@@ -161,7 +161,7 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
                 <div className="mal-news-content">
                   <div className="mal-news-title"><a href={`/news/${item.id}`}>{item.title}</a></div>
                   <div className="mal-news-body">{item.snippet} <a href={`/news/${item.id}`}>read more</a></div>
-                  <div className="mal-news-footer">{item.date} by <a href="#">{item.user || 'WeebHQ_News'}</a> | <a href="#">Discuss (0 comments)</a></div>
+                  <div className="mal-news-footer">{item.date} by WeebHQ</div>
                 </div>
               </div>
             ))}
@@ -171,32 +171,40 @@ export default function HomeClient({ initialTopAiring, initialTopUpcoming, initi
         <div className="content-section">
           <div className="seasonal-header"><span>Latest Anime Recommendations</span><a href="/anime/recommendations" className="view-more-link">View More</a></div>
           <div className="mal-rec-list">
-            {recommendations.map((rec) => (
-              <div key={rec.id} className="mal-rec-item">
-                <div className="mal-rec-top">
-                  <div className="mal-rec-half">
-                    <a href={`/anime/${rec.sourceId || 1}`}><img src={rec.sourceImg || rec.img || "https://placehold.co/400x600/1a1a24/ffffff?text=Anime1"} alt={rec.sourceTitle || rec.title} className="mal-rec-img" /></a>
-                    <div className="mal-rec-info">
-                      <div className="mal-rec-label">If you liked</div>
-                      <div className="mal-rec-title"><a href={`/anime/${rec.sourceId || 1}`}>{rec.sourceTitle || rec.title}</a></div>
-                      <span className="mal-review-add">add</span>
+            {recommendations.length === 0 ? (
+              <div style={{padding: "20px", color: "#888", fontSize: "13px"}}>No recommendations available yet.</div>
+            ) : recommendations.map((rec) => {
+              const src = rec.sourceAnime || {};
+              const sug = rec.recommendedAnime || {};
+              if (!src.title || !sug.title) return null;
+              return (
+                <div key={rec.id} className="mal-rec-item">
+                  <div className="mal-rec-top">
+                    <div className="mal-rec-half">
+                      <a href={"/anime/" + src.id}>
+                        <img src={src.image_url || "https://placehold.co/100x140/1a1a2e/ffffff?text=Anime"} alt={src.title} className="mal-rec-img" loading="lazy" />
+                      </a>
+                      <div className="mal-rec-info">
+                        <div className="mal-rec-label">If you liked</div>
+                        <div className="mal-rec-title"><a href={"/anime/" + src.id}>{src.title}</a></div>
+                      </div>
+                    </div>
+                    <div className="mal-rec-half">
+                      <a href={"/anime/" + sug.id}>
+                        <img src={sug.image_url || "https://placehold.co/100x140/1a1a2e/ffffff?text=Anime"} alt={sug.title} className="mal-rec-img" loading="lazy" />
+                      </a>
+                      <div className="mal-rec-info">
+                        <div className="mal-rec-label">You might like</div>
+                        <div className="mal-rec-title"><a href={"/anime/" + sug.id}>{sug.title}</a></div>
+                      </div>
                     </div>
                   </div>
-                  <div className="mal-rec-half">
-                    <a href={`/anime/${rec.recId || 1}`}><img src={rec.recImg || rec.img || "https://placehold.co/400x600/1a1a24/ffffff?text=Anime2"} alt={rec.recTitle || "Recommendation"} className="mal-rec-img" /></a>
-                    <div className="mal-rec-info">
-                      <div className="mal-rec-label">...then you might like</div>
-                      <div className="mal-rec-title"><a href={`/anime/${rec.recId || 1}`}>{rec.recTitle || "This Anime"}</a></div>
-                      <span className="mal-review-add">add</span>
-                    </div>
+                  <div className="mal-rec-bottom">
+                    <div className="mal-rec-text">{rec.reason || "Recommended based on similar themes and quality."}</div>
                   </div>
                 </div>
-                <div className="mal-rec-bottom">
-                  <div className="mal-rec-text">{rec.text || rec.snippet}</div>
-                  <div className="mal-rec-footer">Anime rec by <a href="#">{rec.user || 'anonymous'}</a> - {rec.date || '3 hours ago'}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@
 import path from 'path';
 import matter from 'gray-matter';
 import HomeClient from './HomeClient';
+import { fetchAnimeForRecommendations, generateRecommendations } from '../lib/recommendations';
 
 const fetchApi = async () => {
   try {
@@ -100,7 +101,8 @@ export default async function Home() {
 
   const reviews = readMarkdownDir('reviews', 5);
   const news = readMarkdownDir('news', 5);
-  const recommendations = readMarkdownDir('recommendations', 5);
+  const recAnime = await fetchAnimeForRecommendations();
+  const recommendations = generateRecommendations(recAnime, 5);
   const articles = readMarkdownDir('articles', 5);
 
   return (
