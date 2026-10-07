@@ -3,7 +3,7 @@ import json
 import time
 import requests
 import yaml
-import google.generativeai as genai
+from duckduckgo_search import DDGS
 from datetime import datetime
 
 # 1. Similarity Engine (Port of the JS logic)
@@ -93,18 +93,18 @@ def get_explanation(model, source, rec):
     
     prompt = f"""
     You are an expert anime critic for WeebHQ. Write a ONE SENTENCE explanation of why someone who likes "{source.get('title')}" would also enjoy "{rec.get('title')}".
-    Focus on factual shared elements like genre, tone, setting, or character dynamics.
-    Do NOT invent details. Do NOT mention studios or release dates unless strictly relevant.
+    CRITICAL RULE: DO NOT invent ANY details. Focus on factual shared elements like genre, tone, setting, or character dynamics.
     Start the sentence with "Recommended because".
     """
     try:
-        response = model.generate_content(prompt)
-        text = response.text.strip().replace('"', '').replace('\n', ' ')
+        results = model.chat(prompt, model='gpt-4o-mini')
+        text = results.strip().replace('"', '').replace('
+', ' ')
         if text.lower().startswith("recommended because"):
             return text
         return f"Recommended because {text}"
     except Exception as e:
-        print(f"Gemini error: {e}")
+        print(f"Free AI error: {e}")
         return fallback
 
 def run_bot():

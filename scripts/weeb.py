@@ -2,7 +2,7 @@ import os
 import time
 import feedparser
 from datetime import datetime
-import google.generativeai as genai
+from duckduckgo_search import DDGS
 
 import requests
 import json
@@ -18,15 +18,8 @@ RSS_FEEDS = {
     "recommendations": "https://www.animenewsnetwork.com/feature/rss.xml"
 }
 
-# API Keys (Set these in Github Secrets)
-GEMINI_API_KEY = os.environ.get("WEEB_API_KEY", "")
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    # API 1: Fast model for News
-    gemini_news_model = genai.GenerativeModel('gemini-3.5-flash')
-    # API 2: Pro/Complex model for Reviews & Recommendations (Changed to Flash to avoid free-tier errors)
-    gemini_pro_model = genai.GenerativeModel('gemini-3.5-flash')
+# Free AI Model Setup (No keys needed!)
+ddgs = DDGS()
 
 def create_raw_article(title, summary, link, category, img_url):
     timestamp = int(time.time())
@@ -54,65 +47,48 @@ author: "WeebHQ News"
 """
 
 def rewrite_article_with_llm(title, summary, link, category, img_url):
-    """
-    Weeb's brain uses 2 different Gemini models for different tasks!
-    News -> API 1 (Gemini 3.5 Flash)
-    Reviews / Recommendations -> API 2 (Gemini 3.5 Flash)
-    """
     print(f"[*] Weeb's brain is processing {category}: {title}")
     
     timestamp = int(time.time())
     date_str = datetime.now().strftime('%b %d, %Y')
     
     prompt = f"""
-    You are an expert anime journalist named Weeb. 
-    Rewrite the following {category} article in English to make it engaging, SEO-friendly, and slightly longer. 
-    Do NOT invent false facts, only use the details provided.
+    You are an expert anime journalist.
+    You MUST rewrite the following {category} article in English.
+    CRITICAL RULE: DO NOT invent ANY details. Only use the TRUE facts provided in the Original Text.
+    Keep it engaging and SEO-friendly.
     
     Original Title: {title}
     Original Text: {summary}
-    Source Link: {link}
     
-    Your response MUST be ONLY raw markdown containing frontmatter and the content. Do not include ```markdown blocks.
+    Your response MUST be ONLY raw markdown containing frontmatter and the content. Do not include markdown codeblocks.
     
     Format:
     ---
     id: "{timestamp}"
-    title: "<A catchy rewritten title>"
+    title: "<A catchy rewritten title based strictly on the original>"
     date: "{date_str}"
-    snippet: "<A 1-sentence engaging summary>"
+    snippet: "<A 1-sentence engaging summary based strictly on the original>"
     img: "{img_url}"
     score: 8.5
-    author: "Weeb"
+    author: "WeebHQ AI"
     ---
     
     <Your rewritten markdown article here>
     """
     
     try:
-        if category == "news":
-            print("[*] Using API 1 (Gemini Flash) for News...")
-            if not GEMINI_API_KEY:
-                raise Exception("No Gemini Key")
-            response = gemini_news_model.generate_content(prompt)
-            text = response.text
-        else:
-            print(f"[*] Using API 2 (Gemini Pro) for {category.capitalize()}...")
-            if not GEMINI_API_KEY:
-                raise Exception("No Gemini Key")
-            response = gemini_pro_model.generate_content(prompt)
-            text = response.text
-            
-        text = text.replace("```markdown", "").replace("```", "").strip()
+        print(f"[*] Using Free DuckDuckGo AI (gpt-4o-mini) for {category.capitalize()}...")
+        results = ddgs.chat(prompt, model='gpt-4o-mini')
+        text = results.replace("```markdown", "").replace("```", "").strip()
         return text
     except Exception as e:
-        print(f"[!] Weeb got a headache (API Error on {category}): {e}")
-        # Fallback if API fails
+        print(f"[!] Weeb got a headache (Free AI Error on {category}): {e}")
         return f"""---
 id: "{timestamp}"
 title: "{title}"
 date: "{date_str}"
-snippet: "Weeb tried to rewrite this {category} but got an API error."
+snippet: "Weeb tried to rewrite this {category} but got an AI connection error."
 img: "{img_url}"
 score: 8.0
 author: "Weeb"
@@ -123,7 +99,7 @@ Source: [Read Original]({link})
 
 {summary}
 
-(Note: Weeb AI rewriting failed due to API limits/errors.)
+(Note: Weeb AI rewriting failed due to connection errors.)
 """
 
 from bs4 import BeautifulSoup
