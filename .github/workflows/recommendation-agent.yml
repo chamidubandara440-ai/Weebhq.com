@@ -1,0 +1,49 @@
+﻿name: WeebHQ Recommendation Agent
+
+on:
+  schedule:
+    - cron: '20 */4 * * *'   # Every 4 hours at minute 20
+  workflow_dispatch:
+
+concurrency:
+  group: recommendation-agent
+  cancel-in-progress: false
+
+jobs:
+  recommendation-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Recommendation Bot
+        env:
+          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
+        run: python scripts/recommendation_bot.py
+
+      - name: Commit and push new recommendation
+        run: |
+          git config --global user.name "WeebHQ Recommendation Bot"
+          git config --global user.email "recs@weebhq.com"
+          git pull --rebase origin main || true
+          git add content/articles/latest-anime-recommendations/
+          if ! git diff --staged --quiet; then
+            git commit -m "feat: auto-publish anime recommendation"
+            git push origin main
+            echo "[Rec Bot] Recommendation committed and pushed."
+          else
+            echo "[Rec Bot] No new recommendation to commit this run."
+          fi

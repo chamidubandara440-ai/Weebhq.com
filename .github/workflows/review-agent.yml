@@ -1,0 +1,51 @@
+﻿name: WeebHQ Review Agent
+
+on:
+  schedule:
+    - cron: '10 */4 * * *'   # Every 4 hours at minute 10
+  workflow_dispatch:
+
+concurrency:
+  group: review-agent
+  cancel-in-progress: false
+
+jobs:
+  review-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Review Bot
+        env:
+          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
+        run: python scripts/review_bot.py
+
+      - name: Commit and push new review
+        run: |
+          git config --global user.name "WeebHQ Review Bot"
+          git config --global user.email "reviews@weebhq.com"
+          git pull --rebase origin main || true
+          git add content/articles/latest-anime-reviews/
+          if ! git diff --staged --quiet; then
+            NEW_FILE=$(git diff --staged --name-only | grep "latest-anime-reviews" | head -1)
+            ANIME_TITLE=$(grep "^anime_title:" "$NEW_FILE" 2>/dev/null | sed "s/anime_title: *['\"]\\(.*\\)['\"]$/\\1/" | head -1)
+            git commit -m "feat: auto-publish anime review - ${ANIME_TITLE:-new anime}"
+            git push origin main
+            echo "[Review Bot] Review committed and pushed: $NEW_FILE"
+          else
+            echo "[Review Bot] No new review to commit this run."
+          fi

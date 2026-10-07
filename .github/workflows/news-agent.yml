@@ -1,0 +1,49 @@
+﻿name: WeebHQ News Agent
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Every hour
+  workflow_dispatch:
+
+concurrency:
+  group: news-agent
+  cancel-in-progress: false
+
+jobs:
+  news-agent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run News Bot
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python scripts/news_bot.py
+
+      - name: Commit and push new articles
+        run: |
+          git config --global user.name "WeebHQ News Bot"
+          git config --global user.email "news@weebhq.com"
+          git pull --rebase origin main || true
+          git add content/articles/anime-news/
+          if ! git diff --staged --quiet; then
+            git commit -m "feat: auto-publish anime news article"
+            git push origin main
+            echo "[News Bot] Article committed and pushed."
+          else
+            echo "[News Bot] No new article to commit this run."
+          fi

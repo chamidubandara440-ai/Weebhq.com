@@ -1,81 +1,21 @@
-name: Weeb Autonomous Agent
+﻿# DEPRECATED: This combined workflow has been replaced by three independent workflows:
+#   news-agent.yml         (runs every hour)
+#   review-agent.yml       (runs every 4 hours)
+#   recommendation-agent.yml (runs every 4 hours)
+#
+# This file is kept for reference only and has NO schedule trigger.
+# It can be deleted once the three new workflows are confirmed working.
+
+name: "DEPRECATED - Weeb Combined Agent (disabled)"
 
 on:
-  schedule:
-    - cron: '0 */4 * * *' # Runs every 4 hours
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  workflow_dispatch:   # Manual trigger only – no schedule
 
 jobs:
-  # ── Job 1: Existing news/reviews/recommendations automation ──────────────
-  run-agent:
+  disabled:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
-
-      - name: Run Weeb Agent
-        env:
-          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
-        run: python scripts/weeb.py
-
-      - name: Commit and Push changes
+      - name: Notice
         run: |
-          git config --global user.name "Weeb Agent"
-          git config --global user.email "weeb@weebhq.com"
-          git add content/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-post: Weeb found new anime news! 🐾" && git push)
-
-  # ── Job 2: Latest Anime Reviews automation (runs after job 1 to avoid conflicts) ──
-  review-bot:
-    runs-on: ubuntu-latest
-    needs: run-agent          # runs after news job so git pushes don't conflict
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          # Pull latest including any commits from run-agent job
-          ref: main
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
-
-      - name: Run Review Bot
-        env:
-          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
-        run: python scripts/review_bot.py
-
-      - name: Commit and push new review (if any)
-        run: |
-          git config --global user.name "WeebHQ Review Bot"
-          git config --global user.email "reviews@weebhq.com"
-          git pull --rebase origin main
-          NEW_FILE=$(git status --porcelain content/articles/latest-anime-reviews/ | grep '^?' | awk '{print $2}' | head -1)
-          if [ -n "$NEW_FILE" ]; then
-            # Extract anime title from file for commit message
-            ANIME_TITLE=$(grep '^anime_title:' "$NEW_FILE" | sed 's/anime_title: *"\(.*\)"/\1/' | head -1)
-            git add content/articles/latest-anime-reviews/
-            git commit -m "feat: auto-publish anime review - ${ANIME_TITLE:-new anime}"
-            git push origin main
-            echo "[Review Bot] Review committed and pushed: $NEW_FILE"
-          else
-            echo "[Review Bot] No new review to commit this run."
-          fi
+          echo "This workflow is deprecated."
+          echo "Use news-agent.yml, review-agent.yml, or recommendation-agent.yml instead."
