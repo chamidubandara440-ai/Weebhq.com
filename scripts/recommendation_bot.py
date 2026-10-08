@@ -1,10 +1,11 @@
-﻿import os
+import os
 import json
 import time
 import requests
 import yaml
 from duckduckgo_search import DDGS
 from datetime import datetime
+import google.generativeai as genai
 
 # 1. Similarity Engine (Port of the JS logic)
 TITLE_GENRE_MAP = [
@@ -97,7 +98,7 @@ def get_explanation(model, source, rec):
     Start the sentence with "Recommended because".
     """
     try:
-        results = model.chat(prompt, model='gpt-4o-mini')
+        response = model.generate_content(prompt)
         text = results.strip().replace('"', '').replace('
 ', ' ')
         if text.lower().startswith("recommended because"):
