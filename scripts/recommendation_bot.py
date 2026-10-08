@@ -99,8 +99,7 @@ def get_explanation(model, source, rec):
     """
     try:
         response = model.generate_content(prompt)
-        text = results.strip().replace('"', '').replace('
-', ' ')
+        text = response.text.strip()
         if text.lower().startswith("recommended because"):
             return text
         return f"Recommended because {text}"
