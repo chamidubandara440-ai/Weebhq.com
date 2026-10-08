@@ -1,12 +1,15 @@
 ﻿"""
 WeebHQ News Bot
 ===============
-Fetches fresh anime news from AnimeNewsNetwork RSS,
-generates a high-quality article using OpenRouter (google/gemma-4-31b-it:free),
-and saves it to: content/news/<slug>.md
+Fetches anime news from AnimeNewsNetwork RSS, generates a full AI article
+using OpenRouter (google/gemma-4-31b-it:free), validates quality,
+and saves to: content/news/<slug>.md
 
-The frontmatter is fully compatible with src/app/news/page.js which reads:
-  id, title, date, snippet, img, author
+CRITICAL RULES:
+- Never publish RSS description as article body.
+- Never publish if AI fails after all retries.
+- article_body must be >= 1500 characters.
+- Log safe diagnostics only. Never log the API key.
 
 Environment variables:
   OPENROUTER_API_KEY  - required for AI generation
@@ -16,7 +19,6 @@ import os
 import re
 import json
 import time
-import hashlib
 import feedparser
 import requests
 import yaml
@@ -32,15 +34,16 @@ RSS_FEEDS = [
     "https://www.animenewsnetwork.com/news/rss.xml",
 ]
 
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL    = "google/gemma-4-31b-it:free"
-OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL   = "https://openrouter.ai/api/v1"
+OPENROUTER_MODEL      = "google/gemma-4-31b-it:free"
+OPENROUTER_API_KEY    = os.environ.get("OPENROUTER_API_KEY", "")
 
-# Must match what src/app/news/page.js reads from
-CONTENT_DIR = os.path.join("content", "news")
+CONTENT_DIR           = os.path.join("content", "news")
 
-MAX_ARTICLES_PER_RUN = 2
-REQUEST_DELAY        = 2.0
+MAX_ARTICLES_PER_RUN  = 2
+MAX_AI_ATTEMPTS       = 3
+MIN_ARTICLE_CHARS     = 1500   # Reject AI response if article_body is shorter
+REQUEST_DELAY         = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -84,16 +87,109 @@ def get_og_image(url):
 
 
 def clean_html(raw):
-    return BeautifulSoup(raw, "html.parser").get_text(separator=" ").strip()
+    text = BeautifulSoup(raw, "html.parser").get_text(separator=" ").strip()
+    return " ".join(text.split())
+
+
+def fetch_full_article_text(url):
+    """Try to scrape more text from the article page itself."""
+    try:
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (WeebHQ News Bot)"}
+        )
+        html = urllib.request.urlopen(req, timeout=12).read()
+        soup = BeautifulSoup(html, "html.parser")
+        # ANN article body is inside #content-zone or .meat div
+        for sel in ["#content-zone", ".meat", "article", ".news-body"]:
+            el = soup.select_one(sel)
+            if el:
+                text = el.get_text(separator=" ").strip()
+                text = " ".join(text.split())
+                if len(text) > 200:
+                    return text[:4000]  # Cap to avoid token overload
+        # Fallback: grab all <p> text
+        paragraphs = soup.find_all("p")
+        text = " ".join(p.get_text() for p in paragraphs).strip()
+        if len(text) > 200:
+            return " ".join(text.split())[:4000]
+    except Exception as e:
+        log(f"Full article fetch failed for {url}: {e}")
+    return ""
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter call with retry
+# Prompts
 # ---------------------------------------------------------------------------
-def call_openrouter(system_prompt, user_prompt, max_retries=3):
-    if not OPENROUTER_API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY not set")
+SYSTEM_PROMPT = """\
+You are a professional anime journalist writing for WeebHQ.com.
 
+Your task: Write a COMPLETE, FULL-LENGTH anime news article based ONLY on the
+source material supplied by the user.
+
+MANDATORY RULES:
+1. Write approximately 600-1000 words.
+2. Do NOT return only the source description.
+3. Do NOT summarize in one sentence.
+4. Do NOT invent any facts not present in the source material.
+5. Do NOT fabricate quotes, release dates, or character/plot details.
+6. Use a proper journalistic structure:
+   - An engaging introduction paragraph
+   - Multiple body paragraphs with ## headings where appropriate
+   - A closing/conclusion paragraph
+7. Every factual statement MUST be supported by the supplied source material.
+8. Write in clean, professional British/International English.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object with NO extra text and NO markdown code fences.
+
+JSON schema (all fields required):
+{
+  "title": "<SEO-friendly article title, max 90 chars>",
+  "slug": "<url-safe slug, lowercase, hyphens only, max 70 chars>",
+  "description": "<meta description, 120-160 chars, no invented facts>",
+  "tags": ["<tag1>", "<tag2>"],
+  "article_body": "<FULL Markdown article, minimum 600 words, with ## headings>"
+}
+
+CRITICAL: article_body MUST be a long, complete article - NOT just the source description.
+"""
+
+
+def build_user_prompt(entry, full_text=""):
+    title   = getattr(entry, "title", "").strip()
+    summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
+    link    = getattr(entry, "link", "")
+    pub     = getattr(entry, "published", "")
+
+    source_body = full_text if full_text and len(full_text) > len(summary) else summary
+
+    return f"""\
+=== SOURCE INFORMATION ===
+Title:      {title}
+Published:  {pub}
+Source URL: {link}
+
+Source Content:
+{source_body}
+
+=== YOUR TASK ===
+Write a complete anime news article for WeebHQ.com based ONLY on the source above.
+
+Requirements:
+- Write approximately 600-1000 words.
+- Do NOT return only the source description.
+- Do NOT summarize in one sentence.
+- Do NOT invent any facts.
+- Structure with introduction, multiple paragraphs, section headings, and conclusion.
+- Return ONLY the JSON object described in the system prompt.
+"""
+
+
+# ---------------------------------------------------------------------------
+# OpenRouter call - HTTP level (1 attempt)
+# ---------------------------------------------------------------------------
+def _single_openrouter_call(user_prompt):
+    """Make one HTTP call to OpenRouter. Returns raw content string."""
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type":  "application/json",
@@ -103,103 +199,168 @@ def call_openrouter(system_prompt, user_prompt, max_retries=3):
     payload = {
         "model": OPENROUTER_MODEL,
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": user_prompt},
         ],
-        "max_tokens": 1200,
-        "temperature": 0.4,
+        "max_tokens": 2048,
+        "temperature": 0.5,
     }
 
-    for attempt in range(1, max_retries + 1):
+    resp = requests.post(
+        f"{OPENROUTER_BASE_URL}/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=60,
+    )
+
+    # Safe diagnostics - never logs the key
+    log(f"OpenRouter status: {resp.status_code}")
+
+    if resp.status_code in (429, 500, 502, 503, 504):
+        raise requests.HTTPError(f"Retryable HTTP {resp.status_code}")
+
+    resp.raise_for_status()
+
+    resp_json = resp.json()
+    choices = resp_json.get("choices", [])
+    log(f"Choices count: {len(choices)}")
+
+    if not choices:
+        raise ValueError("No choices in OpenRouter response")
+
+    choice = choices[0]
+    finish_reason = choice.get("finish_reason", "unknown")
+    log(f"Finish reason: {finish_reason}")
+
+    content = choice.get("message", {}).get("content", "")
+    log(f"AI content length: {len(content)}")
+
+    if not content:
+        raise ValueError("Empty content from OpenRouter")
+
+    return content
+
+
+# ---------------------------------------------------------------------------
+# JSON parsing with code fence stripping
+# ---------------------------------------------------------------------------
+def parse_ai_json(raw):
+    """Strip code fences and parse JSON. Returns dict or raises."""
+    # Strip leading/trailing whitespace
+    raw = raw.strip()
+    # Strip ```json ... ``` or ``` ... ``` fences
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+    raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
+    raw = raw.strip()
+
+    # Sometimes model returns extra text before/after JSON
+    # Try to extract the JSON object
+    json_match = re.search(r"\{[\s\S]*\}", raw)
+    if json_match:
+        raw = json_match.group(0)
+
+    data = json.loads(raw)
+    log(f"JSON parse: success (keys: {list(data.keys())})")
+    return data
+
+
+# ---------------------------------------------------------------------------
+# Content validation
+# ---------------------------------------------------------------------------
+def validate_ai_content(data, rss_summary):
+    """
+    Validate the AI-generated article.
+    Returns (ok: bool, reason: str)
+    """
+    if not isinstance(data, dict):
+        return False, "Not a dict"
+
+    title = data.get("title", "")
+    if not title or len(title) < 5:
+        return False, "title missing or too short"
+
+    body = data.get("article_body", "")
+    if not body:
+        return False, "article_body missing"
+
+    if len(body) < MIN_ARTICLE_CHARS:
+        return False, f"article_body too short: {len(body)} chars (min {MIN_ARTICLE_CHARS})"
+
+    # Reject if body is essentially the RSS description
+    rss_clean = rss_summary.strip().lower()
+    body_clean = body.strip().lower()
+    if rss_clean and len(rss_clean) > 20:
+        # If body starts with the RSS description and is barely longer
+        if body_clean.startswith(rss_clean[:80].lower()) and len(body) < len(rss_summary) + 200:
+            return False, "article_body is just the RSS description"
+
+    # Reject if body is effectively one paragraph (no newlines, no headings)
+    if "\n" not in body and "##" not in body and len(body) < 2000:
+        return False, "article_body appears to be a single block with no structure"
+
+    return True, "PASS"
+
+
+# ---------------------------------------------------------------------------
+# Full AI generation with retries (content-level retries)
+# ---------------------------------------------------------------------------
+def generate_article_with_ai(entry, full_text=""):
+    """
+    Attempt AI generation up to MAX_AI_ATTEMPTS times.
+    Retries on HTTP errors AND on content validation failures.
+    Returns data dict on success, None on all failures.
+    """
+    rss_summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
+    user_prompt = build_user_prompt(entry, full_text)
+    source_title = getattr(entry, "title", "unknown")
+
+    for attempt in range(1, MAX_AI_ATTEMPTS + 1):
+        log(f"AI attempt {attempt}/{MAX_AI_ATTEMPTS} for: {source_title}")
+
         try:
-            resp = requests.post(
-                f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=45,
-            )
-            if resp.status_code in (429, 500, 502, 503, 504):
-                wait = 2 ** attempt
-                log(f"OpenRouter {resp.status_code} – retrying in {wait}s")
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"].strip()
-        except (requests.RequestException, KeyError, IndexError) as e:
-            if attempt == max_retries:
-                raise
-            log(f"OpenRouter error (attempt {attempt}): {e}")
+            raw = _single_openrouter_call(user_prompt)
+        except requests.HTTPError as e:
+            wait = 2 ** attempt
+            log(f"HTTP error: {e} – waiting {wait}s before retry")
+            time.sleep(wait)
+            continue
+        except Exception as e:
+            wait = 2 ** attempt
+            log(f"Request error (attempt {attempt}): {e} – waiting {wait}s")
+            time.sleep(wait)
+            continue
+
+        # Parse JSON
+        try:
+            data = parse_ai_json(raw)
+        except (json.JSONDecodeError, Exception) as e:
+            log(f"JSON parse failed (attempt {attempt}): {e}")
             time.sleep(2 ** attempt)
+            continue
 
-    raise RuntimeError("OpenRouter max retries exceeded")
+        # Validate content
+        ok, reason = validate_ai_content(data, rss_summary)
+        log(f"Validation: {reason}")
 
+        if ok:
+            # Fix slug if needed
+            if not re.match(r"^[a-z0-9-]+$", data.get("slug", "")):
+                data["slug"] = slugify(getattr(entry, "title", "article"))
+            article_len = len(data.get("article_body", ""))
+            log(f"Final article length: {article_len} chars")
+            return data
+        else:
+            log(f"Content rejected – retrying (reason: {reason})")
+            time.sleep(2 ** attempt)
+            continue
 
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """\
-You are a professional anime journalist writing for WeebHQ.com.
-Produce a factual, engaging anime news article.
-
-Rules:
-1. Base the article ONLY on the source information provided. Do NOT invent facts.
-2. Do NOT fabricate quotes, release dates, or details not in the source.
-3. Write in clean English.
-4. Return ONLY a valid JSON object. No extra text, no markdown code fences.
-
-JSON schema:
-{
-  "title": "<SEO-friendly article title (max 90 chars)>",
-  "slug": "<url-safe slug, lowercase, hyphens only, max 70 chars>",
-  "description": "<meta description, 120-160 chars>",
-  "tags": ["<tag1>", "<tag2>"],
-  "article_body": "<full Markdown article body with ## headings, min 3 paragraphs>"
-}
-"""
-
-
-def build_user_prompt(entry):
-    title   = getattr(entry, "title", "")
-    summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
-    link    = getattr(entry, "link", "")
-    pub     = getattr(entry, "published", "")
-
-    return f"""\
-Source Information
-==================
-Title:     {title}
-Published: {pub}
-Summary:
-{summary}
-
-Task
-====
-Write a complete anime news article for WeebHQ based solely on the source above.
-Return only the JSON object.
-"""
+    # All attempts failed
+    log(f"AI generation failed after {MAX_AI_ATTEMPTS} attempts. Skipping article.")
+    return None
 
 
 # ---------------------------------------------------------------------------
-# Deterministic fallback (when AI is unavailable)
-# ---------------------------------------------------------------------------
-def deterministic_fallback(entry):
-    title   = getattr(entry, "title", "").strip()
-    summary = clean_html(getattr(entry, "summary", getattr(entry, "description", "")))
-
-    if not title or len(summary) < 40:
-        return None
-
-    return {
-        "title":        title[:90],
-        "slug":         slugify(title),
-        "description":  summary[:155] + ("..." if len(summary) > 155 else ""),
-        "tags":         ["Anime News"],
-        "article_body": f"## News\n\n{summary}\n",
-    }
-
-
-# ---------------------------------------------------------------------------
-# Markdown builder - compatible with src/app/news/page.js frontmatter schema
+# Markdown builder — compatible with src/app/news/page.js
 # ---------------------------------------------------------------------------
 def build_markdown(data, img_url):
     now        = datetime.now(timezone.utc)
@@ -210,7 +371,6 @@ def build_markdown(data, img_url):
     description = data.get("description", "")
     snippet = description[:150] + ("..." if len(description) > 150 else "")
 
-    # Frontmatter compatible with news/page.js reader
     fm = {
         "id":           timestamp,
         "title":        data["title"],
@@ -238,7 +398,7 @@ def build_markdown(data, img_url):
     return f"---\n{fm_yaml}\n---\n\n{data['article_body'].strip()}\n"
 
 
-def validate_markdown(md):
+def validate_markdown_frontmatter(md):
     try:
         if not md.startswith("---"):
             return False, "Missing opening ---"
@@ -260,11 +420,12 @@ def validate_markdown(md):
 def main():
     log("=" * 50)
     log("News Bot waking up...")
+    log(f"API key configured: {'YES' if OPENROUTER_API_KEY else 'NO - will skip AI generation'}")
     log("=" * 50)
 
     os.makedirs(CONTENT_DIR, exist_ok=True)
     known_slugs = existing_slugs()
-    log(f"Existing articles in content/news: {len(known_slugs)}")
+    log(f"Existing articles: {len(known_slugs)}")
 
     published = 0
 
@@ -273,7 +434,11 @@ def main():
             break
 
         log(f"Fetching feed: {feed_url}")
-        feed = feedparser.parse(feed_url)
+        try:
+            feed = feedparser.parse(feed_url)
+        except Exception as e:
+            log(f"Feed fetch failed: {e}")
+            continue
 
         for entry in feed.entries[:5]:
             if published >= MAX_ARTICLES_PER_RUN:
@@ -288,33 +453,27 @@ def main():
                 log(f"Already published: {title}")
                 continue
 
-            log(f"Processing: {title}")
+            log(f"Source found: {title}")
+
             link    = getattr(entry, "link", "")
             img_url = get_og_image(link) if link else ""
 
-            # AI generation
-            data = None
-            if OPENROUTER_API_KEY:
-                try:
-                    raw = call_openrouter(SYSTEM_PROMPT, build_user_prompt(entry))
-                    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
-                    raw = re.sub(r"\s*```$", "", raw, flags=re.MULTILINE)
-                    data = json.loads(raw.strip())
-                    if not re.match(r"^[a-z0-9-]+$", data.get("slug", "")):
-                        data["slug"] = candidate_slug
-                    log("AI generation succeeded")
-                except Exception as e:
-                    log(f"AI failed: {e} – using deterministic fallback")
-                    data = None
-            else:
-                log("No OPENROUTER_API_KEY – using deterministic fallback")
+            # Try to get more article text from the source page
+            full_text = fetch_full_article_text(link) if link else ""
+            if full_text:
+                log(f"Full article text fetched: {len(full_text)} chars")
 
-            if not data:
-                data = deterministic_fallback(entry)
-                if not data:
-                    log(f"Insufficient data to publish: {title}. Skipping.")
-                    continue
-                log("Using deterministic fallback")
+            # --- AI generation only — NO fallback publishing ---
+            if not OPENROUTER_API_KEY:
+                log("OPENROUTER_API_KEY not set. Skipping article (no fallback publishing).")
+                continue
+
+            data = generate_article_with_ai(entry, full_text)
+
+            if data is None:
+                # All AI attempts failed — DO NOT publish
+                log(f"Skipping: {title} (AI generation failed)")
+                continue
 
             slug = data.get("slug", candidate_slug) or candidate_slug
             if slug in known_slugs:
@@ -322,28 +481,29 @@ def main():
                 continue
 
             md = build_markdown(data, img_url)
-            ok, err = validate_markdown(md)
+            ok, err = validate_markdown_frontmatter(md)
             if not ok:
                 log(f"Frontmatter validation failed: {err}. Skipping.")
                 continue
 
             filepath = os.path.join(CONTENT_DIR, slug + ".md")
             if os.path.exists(filepath):
-                log(f"File exists: {filepath}. Skipping.")
+                log(f"File already exists: {filepath}. Skipping.")
                 continue
 
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(md)
 
-            log(f"Published: {filepath}")
+            log(f"Published: {filepath} ({len(data['article_body'])} chars)")
             known_slugs.add(slug)
             published += 1
             time.sleep(REQUEST_DELAY)
 
+    log("=" * 50)
     if published == 0:
         log("No new articles published this run.")
-
-    log("=" * 50)
+    else:
+        log(f"Published {published} article(s) this run.")
     log("News Bot done. Zzz...")
     log("=" * 50)
 
