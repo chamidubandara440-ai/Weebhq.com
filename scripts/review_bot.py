@@ -16,7 +16,7 @@ import google.generativeai as genai
 # ============================================================
 
 GEMINI_API_KEY   = os.environ.get("WEEB_API_KEY", "")
-CONTENT_DIR      = os.path.join("content", "articles", "latest-anime-reviews")
+CONTENT_DIR      = os.path.join("content", "reviews")
 
 # Tenrai API (public, no key needed)
 TENRAI_BASE      = "https://api.tenrai.org/v1"

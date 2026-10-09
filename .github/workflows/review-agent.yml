@@ -1,4 +1,4 @@
-﻿name: WeebHQ Review Agent
+name: WeebHQ Review Agent
 
 on:
   schedule:
@@ -39,7 +39,7 @@ jobs:
           git config --global user.name "WeebHQ Review Bot"
           git config --global user.email "reviews@weebhq.com"
           git pull --rebase origin main || true
-          git add content/articles/latest-anime-reviews/
+          git add content/reviews/
           if ! git diff --staged --quiet; then
             NEW_FILE=$(git diff --staged --name-only | grep "latest-anime-reviews" | head -1)
             ANIME_TITLE=$(grep "^anime_title:" "$NEW_FILE" 2>/dev/null | sed "s/anime_title: *['\"]\\(.*\\)['\"]$/\\1/" | head -1)
