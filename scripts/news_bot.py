@@ -1,4 +1,4 @@
-﻿"""
+"""
 WeebHQ News Bot - with 429 Retry-After handling
 """
 import os, re, json, time, random, feedparser, requests, yaml, urllib.request, sys
@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 RSS_FEEDS            = ["https://www.animenewsnetwork.com/news/rss.xml"]
 OPENROUTER_BASE_URL  = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL     = "google/gemma-4-31b-it:free"
+OPENROUTER_MODEL     = "openrouter/auto"
 OPENROUTER_API_KEY   = os.environ.get("OPENROUTER_API_KEY", "")
 CONTENT_DIR          = os.path.join("content", "news")
 MAX_ARTICLES_PER_RUN = 2
