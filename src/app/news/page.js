@@ -13,7 +13,7 @@ export default function NewsIndex() {
         const { data } = matter(fileContents);
         return {
           id: filename.replace('.md', ''),
-          timestamp: data.id || "0",
+          timestamp: data.published_at || data.id || "1970-01-01",
           title: data.title,
           date: data.date,
           snippet: data.snippet,
@@ -22,7 +22,7 @@ export default function NewsIndex() {
           comments: Math.floor(Math.random() * 20)
         };
       });
-      newsList.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+      newsList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     }
   } catch(e) {
     console.error("Failed to read news", e);

@@ -19,7 +19,7 @@ export default function ReviewsIndex() {
         const { data } = matter(fileContents);
         return {
           id:       filename.replace('.md', ''),
-          timestamp: data.id    || '0',
+          timestamp: data.published_at || data.id || '1970-01-01',
           title:    data.title  || 'Untitled Review',
           date:     data.date   || '',
           snippet:  data.snippet || '',
@@ -30,7 +30,7 @@ export default function ReviewsIndex() {
         };
       });
       // Sort newest first using the numeric timestamp id
-      reviewsList.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+      reviewsList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     }
   } catch (e) {
     console.error('Failed to read reviews directory', e);
