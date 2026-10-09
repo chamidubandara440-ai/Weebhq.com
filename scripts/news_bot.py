@@ -139,7 +139,7 @@ def _single_openrouter_call(user_prompt):
             {"role":"system","content":SYSTEM_PROMPT},
             {"role":"user","content":user_prompt},
         ],
-        "max_tokens": 2048,
+        "max_tokens": 3000,
         "temperature": 0.5,
     }
     resp = requests.post(f"{OPENROUTER_BASE_URL}/chat/completions",
@@ -177,10 +177,18 @@ def _single_openrouter_call(user_prompt):
         raise ValueError("No choices in response")
 
     choice = choices[0]
-    log(f"Finish reason: {choice.get('finish_reason','unknown')}")
-    content = choice.get("message",{}).get("content","")
+    finish_reason = choice.get("finish_reason", "unknown")
+    log(f"Finish reason: {finish_reason}")
+
+    # finish_reason=length means response cut mid-JSON - reject immediately
+    if finish_reason == "length":
+        raise ValueError("finish_reason=length: response truncated at max_tokens")
+
+    # Guard against None on content key
+    message = choice.get("message") or {}
+    content = message.get("content") or ""
     log(f"AI content length: {len(content)}")
-    if not content: raise ValueError("Empty content")
+    if not content: raise ValueError("Empty content from OpenRouter")
     return content
 
 def parse_ai_json(raw):
