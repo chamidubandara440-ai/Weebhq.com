@@ -85,7 +85,7 @@ def setup_gemini():
         print("Warning: WEEB_API_KEY not found. Will use deterministic fallback explanations.")
         return None
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-3.6-flash')
 
 def get_explanation(model, source, rec):
     fallback = "Recommended because it shares similar themes, genres, and storytelling elements."

@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import json
 import time
@@ -30,7 +30,7 @@ REQUEST_DELAY    = 1.5        # seconds between API calls (rate-limit courtesy)
 # ── Gemini setup ─────────────────────────────────────────────
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+    gemini_model = genai.GenerativeModel("gemini-3.6-flash")
 else:
     gemini_model = None
 
