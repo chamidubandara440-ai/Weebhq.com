@@ -28,22 +28,11 @@ export default function AnimeReviews() {
     console.error("Failed to read reviews", e);
   }
 
-  // Multiply to make it look full if there are too few items
-  if (reviewsList.length > 0) {
-      while (reviewsList.length < 5) {
-          reviewsList.push({...reviewsList[0], id: reviewsList.length + 1});
-      }
-  } else {
-      reviewsList = Array(5).fill({
-          id: 1,
-          title: "Sousou no Frieren",
-          img: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/small/bx154587-2q1q2Q9X2X2z.png",
-          score: 10,
-          snippet: "An absolute masterpiece that redefines the fantasy genre. The pacing, the characters, and the music are all top tier.",
-          date: "Oct 3, 2026",
-          user: "AnimeFan99"
-      }).map((item, i) => ({ ...item, id: i + 1 }));
+    // Show only real articles - no duplication
+  if (reviewsList.length === 0) {
+      reviewsList = [];
   }
+
 
   return (
     <div className="main-wrapper">
