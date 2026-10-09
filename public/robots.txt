@@ -1,3 +1,11 @@
-User-agent: *
+﻿User-agent: *
 Allow: /
+
+# Disallow admin/API routes
+Disallow: /api/
+Disallow: /_next/
+
+# Crawl delay for polite bots
+Crawl-delay: 1
+
 Sitemap: https://weebhq.com/sitemap.xml

@@ -1,0 +1,93 @@
+﻿name: google-indexing
+
+on:
+  push:
+    paths:
+      - 'content/news/**.md'
+      - 'content/reviews/**.md'
+      - 'content/articles/latest-anime-recommendations/**.md'
+
+jobs:
+  notify-google:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install google-auth google-auth-httplib2 httplib2
+
+      - name: Detect new/changed articles and ping Google Indexing API
+        env:
+          GOOGLE_INDEXING_SA_JSON: ${{ secrets.GOOGLE_INDEXING_SA_JSON }}
+        run: |
+          python - <<'PYEOF'
+          import os, json, subprocess, sys
+          import google.auth
+          import google.auth.transport.requests
+          from google.oauth2 import service_account
+          import urllib.request
+
+          BASE_URL = "https://weebhq.com"
+          SCOPES = ["https://www.googleapis.com/auth/indexing"]
+          INDEXING_ENDPOINT = "https://indexing.googleapis.com/v3/urlNotifications:publish"
+
+          sa_json = os.environ.get("GOOGLE_INDEXING_SA_JSON", "")
+          if not sa_json:
+              print("GOOGLE_INDEXING_SA_JSON secret not set. Skipping.")
+              sys.exit(0)
+
+          # Get changed files from last commit
+          result = subprocess.run(
+              ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+              capture_output=True, text=True
+          )
+          changed = result.stdout.strip().splitlines()
+          print(f"Changed files: {changed}")
+
+          # Build URLs from changed markdown files
+          urls = []
+          for f in changed:
+              if f.startswith("content/news/") and f.endswith(".md"):
+                  slug = f.replace("content/news/", "").replace(".md", "")
+                  urls.append(f"{BASE_URL}/news/{slug}")
+              elif f.startswith("content/reviews/") and f.endswith(".md"):
+                  slug = f.replace("content/reviews/", "").replace(".md", "")
+                  urls.append(f"{BASE_URL}/reviews/{slug}")
+              elif f.startswith("content/articles/latest-anime-recommendations/") and f.endswith(".md"):
+                  slug = f.replace("content/articles/latest-anime-recommendations/", "").replace(".md", "")
+                  urls.append(f"{BASE_URL}/articles/latest-anime-recommendations/{slug}")
+
+          if not urls:
+              print("No article URLs to index.")
+              sys.exit(0)
+
+          # Authenticate with service account
+          sa_info = json.loads(sa_json)
+          credentials = service_account.Credentials.from_service_account_info(
+              sa_info, scopes=SCOPES
+          )
+          auth_req = google.auth.transport.requests.Request()
+          credentials.refresh(auth_req)
+          token = credentials.token
+
+          # Notify Google for each URL
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Content-Type": "application/json",
+          }
+          for url in urls:
+              payload = json.dumps({"url": url, "type": "URL_UPDATED"}).encode()
+              req = urllib.request.Request(INDEXING_ENDPOINT, data=payload, headers=headers, method="POST")
+              try:
+                  resp = urllib.request.urlopen(req, timeout=15)
+                  print(f"Indexed: {url} -> {resp.status}")
+              except urllib.error.HTTPError as e:
+                  print(f"Failed: {url} -> {e.code} {e.reason}")
+          PYEOF

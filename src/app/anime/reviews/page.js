@@ -78,24 +78,24 @@ export default function AnimeReviews() {
         </div>
       </div>
       
-      <div className="right-col" style={{ flex: 1, minWidth: '300px' }}>
+            <div className="right-col" style={{ flex: 1, minWidth: '300px' }}>
         <div className="side-header">Search Reviews</div>
         <div className="sidebar-search">
           <input type="text" placeholder="Search Reviews..." style={{ width: '100%', padding: '5px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)', color: 'var(--mal-text)' }} />
         </div>
-        
-        <div className="side-header" style={{marginTop: '20px'}}>
-          <span>Top Reviewers</span>
-          <a href="#">More</a>
-        </div>
-        <div className="trending-tags" style={{ display: 'flex', flexDirection: 'column', padding: '10px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)' }}>
-           <div style={{ fontSize: '12px', marginBottom: '5px' }}>1. <a href="#" style={{ color: 'var(--mal-link)' }}>Gigguk</a> (345 Reviews)</div>
-           <div style={{ fontSize: '12px', marginBottom: '5px' }}>2. <a href="#" style={{ color: 'var(--mal-link)' }}>Joey</a> (212 Reviews)</div>
-           <div style={{ fontSize: '12px', marginBottom: '5px' }}>3. <a href="#" style={{ color: 'var(--mal-link)' }}>Connor</a> (189 Reviews)</div>
-           <div style={{ fontSize: '12px', marginBottom: '5px' }}>4. <a href="#" style={{ color: 'var(--mal-link)' }}>Garnt</a> (156 Reviews)</div>
-        </div>
 
+        <div className="side-header" style={{marginTop: '20px'}}>
+          <span>Community Features</span>
+        </div>
+        <div style={{ padding: '20px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)', textAlign: 'center', borderRadius: '4px' }}>
+          <div style={{ fontSize: '28px', marginBottom: '10px' }}>🚧</div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--mal-text)', marginBottom: '6px' }}>Coming Soon</div>
+          <div style={{ fontSize: '11px', color: 'var(--mal-text-muted, #888)', lineHeight: '1.5' }}>
+            Community reviews, top reviewers, and user rankings are coming soon to WeebHQ.
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

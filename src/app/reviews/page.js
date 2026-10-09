@@ -180,50 +180,24 @@ export default function ReviewsIndex() {
       </div>
 
       {/* ── Right sidebar ───────────────────────────────────── */}
-      <div className="right-col" style={{ flex: 1, minWidth: '240px' }}>
-
+            <div className="right-col" style={{ flex: 1, minWidth: '300px' }}>
         <div className="side-header">Search Reviews</div>
         <div className="sidebar-search">
-          <input
-            type="text"
-            placeholder="Search reviews..."
-            style={{
-              width: '100%', padding: '5px',
-              backgroundColor: 'var(--mal-bg-darker)',
-              border: '1px solid var(--mal-border)',
-              color: 'var(--mal-text)',
-            }}
-          />
+          <input type="text" placeholder="Search Reviews..." style={{ width: '100%', padding: '5px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)', color: 'var(--mal-text)' }} />
         </div>
 
-        <div className="side-header" style={{ marginTop: '20px' }}>
-          <span>Recent Reviews</span>
+        <div className="side-header" style={{marginTop: '20px'}}>
+          <span>Community Features</span>
         </div>
-        <div style={{ backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)', padding: '8px' }}>
-          {reviewsList.slice(0, 5).map(review => (
-            <div key={review.id} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid var(--mal-border)', fontSize: '12px' }}>
-              <a href={`/reviews/${review.id}`} style={{ color: 'var(--mal-link)' }}>{review.title}</a>
-              {review.score != null && (
-                <span style={{ float: 'right', fontWeight: 'bold', color: 'var(--mal-blue, #2e51a2)' }}>
-                  {Number(review.score).toFixed(1)}
-                </span>
-              )}
-              <div style={{ color: '#666', fontSize: '10px', marginTop: '2px' }}>{review.date}</div>
-            </div>
-          ))}
+        <div style={{ padding: '20px', backgroundColor: 'var(--mal-bg-darker)', border: '1px solid var(--mal-border)', textAlign: 'center', borderRadius: '4px' }}>
+          <div style={{ fontSize: '28px', marginBottom: '10px' }}>🚧</div>
+          <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--mal-text)', marginBottom: '6px' }}>Coming Soon</div>
+          <div style={{ fontSize: '11px', color: 'var(--mal-text-muted, #888)', lineHeight: '1.5' }}>
+            Community reviews, top reviewers, and user rankings are coming soon to WeebHQ.
+          </div>
         </div>
-
-        <div className="side-header" style={{ marginTop: '20px' }}>Trending Tags</div>
-        <div className="trending-tags">
-          <span className="mal-tag">Anime Review</span>
-          <span className="mal-tag">Fall 2026</span>
-          <span className="mal-tag">Summer 2026</span>
-          <span className="mal-tag">Action</span>
-          <span className="mal-tag">Drama</span>
-          <span className="mal-tag">Comedy</span>
-        </div>
-
       </div>
     </div>
   );
 }
+
