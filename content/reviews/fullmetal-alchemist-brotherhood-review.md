@@ -10,6 +10,10 @@ author: WeebHQ
 published_at: '2026-10-09'
 updated_at: '2026-10-09'
 cover_image: https://cdn.myanimelist.net/images/anime/1208/94745l.jpg
+img: https://cdn.myanimelist.net/images/anime/1208/94745l.jpg
+snippet: 'Read our full review of Fullmetal Alchemist: Brotherhood. We break down the story, characters, and visuals of Studio Bones iconic masterpiece.'
+score: 9.1
+date: Oct 09, 2026
 rating: 9.1
 status: published
 tags:
