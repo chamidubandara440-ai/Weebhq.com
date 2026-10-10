@@ -1,182 +1,230 @@
-import os
-import json
-import time
-import requests
-import yaml
-from duckduckgo_search import DDGS
-from datetime import datetime
-import google.generativeai as genai
+﻿"""
+WeebHQ Recommendation Bot - Groq + Llama 3.3 70B
+==================================================
+Picks trending anime from Jikan, generates AI recommendation
+articles, saves to content/articles/latest-anime-recommendations/
 
-# 1. Similarity Engine (Port of the JS logic)
-TITLE_GENRE_MAP = [
-    {"keywords": ['shingeki','attack on titan','chainsaw','bleach','naruto','one piece','dragon ball','demon slayer','kimetsu','jujutsu','hunter x hunter','black clover','kingdom','steel ball','jojo'], "genres": ['Action','Battle','Shonen']},
-    {"keywords": ['clannad','violet evergarden','3-gatsu','lion','fruits basket','koe no katachi','march comes'], "genres": ['Drama','Slice of Life','Emotional']},
-    {"keywords": ['gintama','konosuba','spy x family','mob psycho','one punch'], "genres": ['Comedy','Parody']},
-    {"keywords": ['kaguya','tonikawa','horimiya','toradora'], "genres": ['Romance','Comedy']},
-    {"keywords": ['frieren','re:zero','rezero','sword art','overlord','konosuba','tanya','youjo senki'], "genres": ['Fantasy','Isekai']},
-    {"keywords": ['steins','gate','code geass','monster','death note','psycho-pass'], "genres": ['Sci-Fi','Thriller','Mystery']},
-    {"keywords": ['haikyuu','hajime no ippo','slam dunk','pingpong','ippo'], "genres": ['Sports']},
-    {"keywords": ['vinland saga','kingdom','ashita no joe','ginga eiyuu'], "genres": ['Historical','Action']},
-    {"keywords": ['chainsaw','monster','berserk','elfen'], "genres": ['Dark','Seinen']},
-    {"keywords": ['bang dream','love live','uta no prince'], "genres": ['Music','Idol']},
-    {"keywords": ['kimi no na wa','spirited away','your name','sen to chihiro','kizumonogatari','koe no katachi'], "genres": ['Movie','Drama']},
-    {"keywords": ['kusuriya','apothecary','monogatari','bakemonogatari','owarimonogatari'], "genres": ['Mystery','Drama']},
-    {"keywords": ['mob psycho','one punch man','my hero academia','boku no hero'], "genres": ['Superhero','Action','Comedy']},
-]
+Env: GROQ_API_KEY_RECS
+"""
+import os, re, json, time, random, requests, yaml
+from datetime import datetime, timezone
 
-def infer_genres(anime):
-    title = f"{anime.get('title', '')} {anime.get('title_english', '')}".lower()
-    genres = set()
-    for mapping in TITLE_GENRE_MAP:
-        if any(k in title for k in mapping["keywords"]):
-            genres.update(mapping["genres"])
-    return list(genres)
+GROQ_BASE_URL  = "https://api.groq.com/openai/v1"
+GROQ_MODEL     = "llama-3.3-70b-versatile"
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY_RECS", "")
+CONTENT_DIR    = os.path.join("content","articles","latest-anime-recommendations")
+JIKAN_BASE     = "https://api.jikan.moe/v4"
+MAX_RECS       = 2
+MIN_BODY_CHARS = 1200
+MAX_RETRY_WAIT = 90
 
-def compute_similarity(a, b):
-    if a.get('id') == b.get('id'):
-        return -1
-    
-    score = 0
-    if a.get('anime_type') and b.get('anime_type') and a['anime_type'] == b['anime_type']:
-        score += 20
-    if a.get('season') and b.get('season') and a['season'] == b['season']:
-        score += 10
-    if a.get('season_year') and b.get('season_year') and a['season_year'] == b['season_year']:
-        score += 8
-    
-    a_studios = (a.get('studios') or '').lower()
-    b_studios = (b.get('studios') or '').lower()
-    if a_studios and b_studios:
-        for s in a_studios.split(','):
-            if s.strip() and s.strip() in b_studios:
-                score += 15
-                break
+class RateLimitError(Exception):
+    def __init__(self, msg, retry_after=None):
+        super().__init__(msg)
+        self.retry_after = retry_after
 
-    a_genres = infer_genres(a)
-    b_genres = infer_genres(b)
-    overlap = len(set(a_genres) & set(b_genres))
-    score += overlap * 12
+def log(msg): print(f"[Rec Bot] {msg}", flush=True)
 
-    if a.get('score') is not None and b.get('score') is not None:
-        diff = abs(a['score'] - b['score'])
-        if diff <= 0.3: score += 10
-        elif diff <= 0.6: score += 5
-        elif diff <= 1.0: score += 2
+def slugify(text):
+    text = text.lower().strip()
+    text = re.sub(r"[^\w\s-]","",text)
+    text = re.sub(r"[\s_]+","-",text)
+    text = re.sub(r"-+","-",text)
+    return text[:70].strip("-")
 
-    return score
+def existing_slugs():
+    if not os.path.exists(CONTENT_DIR): return set()
+    return {f.replace(".md","") for f in os.listdir(CONTENT_DIR) if f.endswith(".md")}
 
-# 2. Main Bot Logic
-def fetch_anime():
-    url1 = "https://weebhq-api.chamidubandara440.workers.dev/api/anime?limit=50"
-    url2 = "https://weebhq-api.chamidubandara440.workers.dev/api/anime?limit=50&offset=50"
-    anime = []
+def fetch_seasonal():
     try:
-        res1 = requests.get(url1)
-        if res1.status_code == 200: anime.extend(res1.json().get('data', []))
-        res2 = requests.get(url2)
-        if res2.status_code == 200: anime.extend(res2.json().get('data', []))
-    except Exception as e:
-        print(f"Error fetching anime: {e}")
-    return anime
+        resp = requests.get(f"{JIKAN_BASE}/seasons/now", params={"limit":20}, timeout=15)
+        if resp.status_code == 200: return resp.json().get("data",[])
+    except Exception as e: log(f"Jikan error: {e}")
+    return []
 
-def setup_gemini():
-    api_key = os.environ.get("WEEB_API_KEY")
-    if not api_key:
-        print("Warning: WEEB_API_KEY not found. Will use deterministic fallback explanations.")
-        return None
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-3.6-flash')
+SYSTEM_PROMPT = """\
+You are an enthusiastic anime recommendation writer for WeebHQ.com.
 
-def get_explanation(model, source, rec):
-    fallback = "Recommended because it shares similar themes, genres, and storytelling elements."
-    if not model:
-        return fallback
-    
-    prompt = f"""
-    You are an expert anime critic for WeebHQ. Write a ONE SENTENCE explanation of why someone who likes "{source.get('title')}" would also enjoy "{rec.get('title')}".
-    CRITICAL RULE: DO NOT invent ANY details. Focus on factual shared elements like genre, tone, setting, or character dynamics.
-    Start the sentence with "Recommended because".
-    """
-    try:
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        if text.lower().startswith("recommended because"):
-            return text
-        return f"Recommended because {text}"
-    except Exception as e:
-        print(f"Free AI error: {e}")
-        return fallback
+Write a compelling "Should You Watch?" recommendation article for an anime.
 
-def run_bot():
-    print("Starting Recommendation Bot...")
-    anime_list = fetch_anime()
-    if not anime_list:
-        print("No anime fetched. Exiting.")
-        return
+RULES:
+1. Write 500-900 words.
+2. Structure:
+   - Introduction (why this anime is being recommended RIGHT NOW)
+   - ## What Is [Anime Name]?
+   - ## Why You'll Love It (target audience, key appeal)
+   - ## Who Is This For? (genre fans, newcomers, veterans)
+   - ## Quick Stats (mention MAL score, episodes, studio)
+   - ## Our Verdict
+3. Base EVERY claim on the provided data.
+4. Be enthusiastic and fan-focused.
+5. Return ONLY valid JSON:
+{
+  "title": "<recommendation title, max 90 chars>",
+  "slug": "<slug, lowercase hyphens, max 70 chars>",
+  "description": "<meta description 120-160 chars>",
+  "tags": ["tag1","tag2","tag3"],
+  "article_body": "<full Markdown article with ## headings>"
+}
+"""
 
-    # Filter to top scored anime as sources
-    sorted_anime = sorted(anime_list, key=lambda x: x.get('score') or 0, reverse=True)
-    sources = sorted_anime[:20]
-    
-    model = setup_gemini()
-    
-    # Check existing recommendations to prevent duplicates
-    rec_dir = os.path.join(os.getcwd(), 'content', 'articles', 'latest-anime-recommendations')
-    os.makedirs(rec_dir, exist_ok=True)
-    existing_files = os.listdir(rec_dir)
-    
-    for source in sources:
-        best_match = None
-        best_score = -1
-        
-        for candidate in anime_list:
-            if candidate['id'] == source['id']: continue
-            sim = compute_similarity(source, candidate)
-            if sim > best_score:
-                best_score = sim
-                best_match = candidate
-                
-        if best_match and best_score > 0:
-            pair_id = f"{min(source['id'], best_match['id'])}-{max(source['id'], best_match['id'])}"
-            slug = f"recommendation-{source['id']}-to-{best_match['id']}"
-            filename = f"{slug}.md"
-            
-            if filename in existing_files:
-                continue # Skip duplicate
-            
-            print(f"Generating recommendation: {source.get('title')} -> {best_match.get('title')}")
-            reason = get_explanation(model, source, best_match)
-            
-            frontmatter = {
-                "title": f"If you liked {source.get('title')}, watch {best_match.get('title')}!",
-                "slug": slug,
-                "category": "Latest Anime Recommendations",
-                "source_anime": source.get('title'),
-                "source_id": source.get('id'),
-                "recommended_anime": best_match.get('title'),
-                "recommended_id": best_match.get('id'),
-                "reason": reason,
-                "published_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "cover_image": source.get('image_url') or best_match.get('image_url') or "https://placehold.co/800x400/1a1a2e/ffffff?text=Recommendation",
-                "tags": ["Recommendations", infer_genres(source)[0] if infer_genres(source) else "Anime"]
-            }
-            
-            # YAML format the frontmatter properly without using external yaml library to avoid deps
-            # Actually PyYAML is already in requirements, so let's use it
+def build_prompt(anime):
+    title    = anime.get("title_english") or anime.get("title","Unknown")
+    score    = anime.get("score","N/A")
+    episodes = anime.get("episodes","Unknown")
+    synopsis = (anime.get("synopsis","") or "")[:2500]
+    genres   = ", ".join(g["name"] for g in anime.get("genres",[]))
+    themes   = ", ".join(t["name"] for t in anime.get("themes",[]))
+    studios  = ", ".join(s["name"] for s in anime.get("studios",[]))
+    season   = f"{str(anime.get('season','')).title()} {anime.get('year','')}".strip()
+
+    return f"""=== ANIME INFO ===
+Title:     {title}
+MAL Score: {score}/10
+Episodes:  {episodes} | Season: {season}
+Genres:    {genres}
+Themes:    {themes}
+Studio:    {studios}
+
+Synopsis:
+{synopsis}
+
+=== TASK ===
+Write a compelling "Should You Watch?" recommendation for WeebHQ.com.
+Make anime fans excited to watch this. Return ONLY the JSON object.
+"""
+
+def call_groq(prompt):
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type":  "application/json",
+    }
+    payload = {
+        "model":      GROQ_MODEL,
+        "messages":   [{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],
+        "max_tokens": 2500,
+        "temperature":0.7,
+    }
+    resp = requests.post(f"{GROQ_BASE_URL}/chat/completions",headers=headers,json=payload,timeout=60)
+    log(f"Groq status: {resp.status_code}")
+
+    if resp.status_code == 429:
+        ra_raw = resp.headers.get("Retry-After","")
+        try:   ra = int(ra_raw)
+        except: ra = None
+        err = resp.text[:200].replace(GROQ_API_KEY,"***") if GROQ_API_KEY else resp.text[:200]
+        log(f"Rate limit | Retry-After:{ra_raw!r} | {err}")
+        raise RateLimitError("429",retry_after=ra)
+
+    if resp.status_code in (500,502,503,504):
+        raise requests.HTTPError(f"HTTP {resp.status_code}")
+
+    resp.raise_for_status()
+    choices = resp.json().get("choices",[])
+    if not choices: raise ValueError("No choices")
+    ch = choices[0]
+    log(f"Finish: {ch.get('finish_reason')}")
+    if ch.get("finish_reason")=="length": raise ValueError("Truncated")
+    content = (ch.get("message") or {}).get("content") or ""
+    log(f"Content: {len(content)} chars")
+    if not content: raise ValueError("Empty")
+    return content
+
+def parse_json(raw):
+    raw = raw.strip()
+    raw = re.sub(r"^```(?:json)?\s*","",raw,flags=re.MULTILINE)
+    raw = re.sub(r"\s*```$","",raw,flags=re.MULTILINE)
+    raw = raw.strip()
+    m = re.search(r"\{[\s\S]*\}",raw)
+    if m: raw = m.group(0)
+    return json.loads(raw)
+
+def build_md(data, anime):
+    now      = datetime.now(timezone.utc)
+    ts       = str(int(now.timestamp()))
+    date_h   = now.strftime("%b %d, %Y")
+    date_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    cover    = anime.get("images",{}).get("jpg",{}).get("large_image_url","")
+    desc     = data.get("description","")
+    snippet  = desc[:150]+("..." if len(desc)>150 else "")
+
+    fm = {
+        "id":           ts,
+        "title":        data["title"],
+        "slug":         data["slug"],
+        "category":     "Latest Anime Recommendations",
+        "anime_title":  anime.get("title_english") or anime.get("title",""),
+        "anime_id":     anime.get("mal_id",""),
+        "author":       "WeebHQ",
+        "published_at": date_iso,
+        "cover_image":  cover,
+        "img":          cover,
+        "snippet":      snippet,
+        "score":        float(anime.get("score") or 8.0),
+        "date":         date_h,
+        "status":       "published",
+        "tags":         data.get("tags",["Anime Recommendation"]),
+        "description":  desc,
+    }
+    fm_yaml = yaml.dump(fm,allow_unicode=True,default_flow_style=False,sort_keys=False).rstrip()
+    return f"---\n{fm_yaml}\n---\n\n{data['article_body'].strip()}\n"
+
+def main():
+    log("="*55)
+    log("WeebHQ Rec Bot (Groq + Llama 3.3 70B)")
+    log(f"API key: {'SET' if GROQ_API_KEY else 'MISSING'}")
+    log("="*55)
+
+    if not GROQ_API_KEY: log("GROQ_API_KEY_RECS not set."); return
+
+    os.makedirs(CONTENT_DIR,exist_ok=True)
+    known = existing_slugs()
+    log(f"Existing recs: {len(known)}")
+
+    anime_list = fetch_seasonal()
+    if not anime_list: log("No seasonal anime."); return
+
+    # Sort by score descending
+    anime_list.sort(key=lambda a: float(a.get("score") or 0), reverse=True)
+
+    published = 0
+    for anime in anime_list:
+        if published >= MAX_RECS: break
+        title = anime.get("title_english") or anime.get("title","")
+        slug  = "recommendation-" + slugify(title)
+        if slug in known: log(f"Skip: {title}"); continue
+        if not anime.get("synopsis"): continue
+
+        log(f"\nGenerating rec for: {title}")
+        prompt = build_prompt(anime)
+
+        for attempt in range(1,4):
+            log(f"Attempt {attempt}/3")
+            if attempt > 1: time.sleep(7+random.uniform(0,3))
             try:
-                fm_yaml = yaml.dump(frontmatter, sort_keys=False, allow_unicode=True)
+                raw  = call_groq(prompt)
+                data = parse_json(raw)
+                body = data.get("article_body","")
+                if len(body) < MIN_BODY_CHARS:
+                    log(f"Body too short ({len(body)}). Retry."); continue
+                final_slug = data.get("slug",slug) or slug
+                if final_slug in known: log(f"Slug collision. Skip."); break
+                md = build_md(data,anime)
+                fp = os.path.join(CONTENT_DIR,final_slug+".md")
+                if os.path.exists(fp): log(f"File exists."); break
+                with open(fp,"w",encoding="utf-8") as f: f.write(md)
+                log(f"Published: {fp} ({len(body)} chars)")
+                known.add(final_slug); published += 1; break
+            except RateLimitError as e:
+                wait = min((e.retry_after or 0)+random.uniform(5,15),MAX_RETRY_WAIT) if e.retry_after \
+                       else min(2**(attempt+3)+random.uniform(0,10),MAX_RETRY_WAIT)
+                log(f"Rate limit -> {wait:.0f}s"); time.sleep(wait)
             except Exception as e:
-                print(f"YAML dump failed: {e}")
-                continue
-                
-            markdown_content = f"---\n{fm_yaml}---\n\nIf you enjoyed **{source.get('title')}**, you should definitely check out **{best_match.get('title')}**.\n\n### Why We Recommend It\n{reason}\n\n### About {best_match.get('title')}\n{best_match.get('synopsis') or 'No synopsis available.'}\n"
-            
-            filepath = os.path.join(rec_dir, filename)
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
-                
-            print(f"Successfully created: {filename}")
-            break # Only create one recommendation per run
+                wait = min(2**attempt+random.uniform(0,5),MAX_RETRY_WAIT)
+                log(f"Error: {e} -> {wait:.0f}s"); time.sleep(wait)
+        time.sleep(3)
 
-if __name__ == "__main__":
-    run_bot()
+    log(f"\nDone. Published {published} rec(s).")
+
+if __name__ == "__main__": main()

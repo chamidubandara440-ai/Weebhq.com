@@ -1,4 +1,4 @@
-﻿name: WeebHQ Recommendation Agent
+name: WeebHQ Recommendation Agent
 
 on:
   schedule:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Recommendation Bot
         env:
-          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
+          GROQ_API_KEY_RECS: ${{ secrets.GROQ_API_KEY_RECS }}
         run: python scripts/recommendation_bot.py
 
       - name: Commit and push new recommendation

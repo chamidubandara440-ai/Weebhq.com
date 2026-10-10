@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Review Bot
         env:
-          WEEB_API_KEY: ${{ secrets.WEEB_API_KEY }}
+          GROQ_API_KEY_REVIEWS: ${{ secrets.GROQ_API_KEY_REVIEWS }}
         run: python scripts/review_bot.py
 
       - name: Commit and push new review
