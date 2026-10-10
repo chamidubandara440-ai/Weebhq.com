@@ -379,7 +379,7 @@ def build_md(data, img_url):
 def main():
     log("="*60)
     log("WeebHQ News Bot — Trending-First Mode")
-    log(f"Model: {GROQ_MODEL}")
+    log(f"Model: {GROQ_MODELS[0]}")
     log(f"API key: {'SET' if GROQ_API_KEY else 'MISSING'}")
     log("="*60)
 
