@@ -53,10 +53,10 @@ VIRAL_KEYWORDS = [
 GROQ_BASE_URL  = "https://api.groq.com/openai/v1"
 # Model fallback chain - tries each until one works
 GROQ_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
-    "llama3-70b-8192",
+    "llama-3.1-8b-instant",
+    "llama3-8b-8192",
     "mixtral-8x7b-32768",
+    "llama3-70b-8192",
 ]
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 CONTENT_DIR    = os.path.join("content", "news")
