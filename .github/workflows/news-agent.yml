@@ -1,8 +1,8 @@
-﻿name: WeebHQ News Agent
+name: WeebHQ News Agent
 
 on:
   schedule:
-    - cron: '0 * * * *'   # Every hour
+    - cron: '0 */3 * * *'   # Every hour
   workflow_dispatch:
 
 concurrency:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Run News Bot
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python scripts/news_bot.py
 
       - name: Commit and push new articles
