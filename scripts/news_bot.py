@@ -302,9 +302,10 @@ def call_groq(prompt, model=None):
         resp = requests.post(f"{GROQ_BASE_URL}/chat/completions",headers=headers,json=payload,timeout=60)
         log(f"Groq status [{try_model}]: {resp.status_code}")
 
-        if resp.status_code == 404:
-            log(f"Model {try_model} not found (404). Trying next model...")
-            last_error = ValueError(f"Model {try_model} returned 404")
+        if resp.status_code in (400, 404):
+            err_body = resp.text[:150].replace(GROQ_API_KEY,"***") if GROQ_API_KEY else resp.text[:150]
+            log(f"Model {try_model} error {resp.status_code}: {err_body}. Trying next model...")
+            last_error = ValueError(f"Model {try_model} returned {resp.status_code}")
             continue  # try next model in chain
 
         if resp.status_code == 429:

@@ -11,7 +11,7 @@ import os, re, json, time, random, requests, yaml, sys
 from datetime import datetime, timezone
 
 GROQ_BASE_URL   = "https://api.groq.com/openai/v1"
-GROQ_MODEL      = "llama-3.3-70b-versatile"
+GROQ_MODELS = ["llama-3.3-70b-versatile","llama-3.1-70b-versatile","llama3-70b-8192","mixtral-8x7b-32768"]
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY_REVIEWS", "")
 CONTENT_DIR     = os.path.join("content", "reviews")
 JIKAN_BASE      = "https://api.jikan.moe/v4"
@@ -118,8 +118,11 @@ def call_groq(prompt):
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type":  "application/json",
     }
-    payload = {
-        "model":       GROQ_MODEL,
+    last_error = None
+    for try_model in GROQ_MODELS:
+        log(f"Trying model: {try_model}")
+        payload = {
+            "model": try_model,
         "messages":    [{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],
         "max_tokens":  3500,
         "temperature": 0.65,
@@ -127,7 +130,12 @@ def call_groq(prompt):
     resp = requests.post(f"{GROQ_BASE_URL}/chat/completions", headers=headers, json=payload, timeout=60)
     log(f"Groq status: {resp.status_code}")
 
-    if resp.status_code == 429:
+    if resp.status_code in (400, 404):
+            err_body = resp.text[:150].replace(GROQ_API_KEY,"***") if GROQ_API_KEY else resp.text[:150]
+            log(f"Model {try_model} error {resp.status_code}. Trying next...")
+            last_error = ValueError(f"HTTP {resp.status_code}")
+            continue
+        if resp.status_code == 429:
         ra_raw = resp.headers.get("Retry-After","")
         try:   ra = int(ra_raw)
         except: ra = None
