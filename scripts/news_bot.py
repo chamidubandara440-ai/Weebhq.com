@@ -51,7 +51,13 @@ VIRAL_KEYWORDS = [
 ]
 
 GROQ_BASE_URL  = "https://api.groq.com/openai/v1"
-GROQ_MODEL     = "llama-3.3-70b-versatile"
+# Model fallback chain - tries each until one works
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-70b-versatile",
+    "llama3-70b-8192",
+    "mixtral-8x7b-32768",
+]
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 CONTENT_DIR    = os.path.join("content", "news")
 MAX_AI_ATTEMPTS = 3
@@ -277,41 +283,60 @@ This story is trending NOW. Make readers feel the excitement.
 Base every fact on the source only. Return ONLY the JSON object.
 """
 
-def call_groq(prompt):
+def call_groq(prompt, model=None):
+    """Try GROQ_MODELS in order until one works (handles 404 per model)."""
+    models_to_try = [model] if model else GROQ_MODELS
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type":  "application/json",
     }
-    payload = {
-        "model":       GROQ_MODEL,
+    last_error = None
+    for try_model in models_to_try:
+        log(f"Trying model: {try_model}")
+        payload = {
+            "model":       try_model,
         "messages":    [{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":prompt}],
         "max_tokens":  3000,
         "temperature": 0.65,
     }
-    resp = requests.post(f"{GROQ_BASE_URL}/chat/completions",headers=headers,json=payload,timeout=60)
-    log(f"Groq status: {resp.status_code}")
+        resp = requests.post(f"{GROQ_BASE_URL}/chat/completions",headers=headers,json=payload,timeout=60)
+        log(f"Groq status [{try_model}]: {resp.status_code}")
 
-    if resp.status_code == 429:
-        ra_raw = resp.headers.get("Retry-After","")
-        try:   ra = int(ra_raw)
-        except: ra = None
-        err = resp.text[:200].replace(GROQ_API_KEY,"***") if GROQ_API_KEY else resp.text[:200]
-        log(f"Rate limit | Retry-After:{ra_raw!r} | {err}")
-        raise RateLimitError("429", retry_after=ra)
+        if resp.status_code == 404:
+            log(f"Model {try_model} not found (404). Trying next model...")
+            last_error = ValueError(f"Model {try_model} returned 404")
+            continue  # try next model in chain
 
-    if resp.status_code in (500,502,503,504):
-        raise requests.HTTPError(f"HTTP {resp.status_code}")
+        if resp.status_code == 429:
+            ra_raw = resp.headers.get("Retry-After","")
+            try:   ra = int(ra_raw)
+            except: ra = None
+            err = resp.text[:200].replace(GROQ_API_KEY,"***") if GROQ_API_KEY else resp.text[:200]
+            log(f"Rate limit | Retry-After:{ra_raw!r} | {err}")
+            raise RateLimitError("429", retry_after=ra)
 
-    resp.raise_for_status()
-    choices = resp.json().get("choices",[])
-    if not choices: raise ValueError("No choices")
-    ch = choices[0]
-    log(f"Finish: {ch.get('finish_reason')}")
-    if ch.get("finish_reason") == "length": raise ValueError("Truncated at max_tokens")
-    content = (ch.get("message") or {}).get("content") or ""
-    log(f"Content: {len(content)} chars")
-    if not content: raise ValueError("Empty content")
-    return content
+        if resp.status_code == 401:
+            log("Authentication failed (401). Check GROQ_API_KEY secret.")
+            raise ValueError("Invalid or missing GROQ_API_KEY")
+
+        if resp.status_code in (500,502,503,504):
+            log(f"Server error {resp.status_code}. Retrying model...")
+            last_error = requests.HTTPError(f"HTTP {resp.status_code}")
+            continue  # try next model
+
+        resp.raise_for_status()
+        choices = resp.json().get("choices",[])
+        if not choices: raise ValueError("No choices")
+        ch = choices[0]
+        log(f"Finish: {ch.get('finish_reason')} | Model: {try_model}")
+        if ch.get("finish_reason") == "length": raise ValueError("Truncated at max_tokens")
+        content = (ch.get("message") or {}).get("content") or ""
+        log(f"Content: {len(content)} chars")
+        if not content: raise ValueError("Empty content")
+        return content  # SUCCESS
+
+    # All models failed
+    raise last_error or ValueError("All Groq models failed")
 
 def parse_json(raw):
     raw = raw.strip()
