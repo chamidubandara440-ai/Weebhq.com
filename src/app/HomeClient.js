@@ -1,14 +1,155 @@
-﻿"use client";
-import { useState, useEffect, useCallback } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 
 const API_BASE = "https://weebhq-api.chamidubandara440.workers.dev";
 
-// ── Utility ──────────────────────────────────────────────────────────────────
-function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
+// ── Curated Anime Hero Backdrops ──────────────────────────────────────────────
+const HERO_SLIDES = [
+  {
+    id: 1,
+    title: "Sousou no Frieren",
+    subtitle: "Frieren: Beyond Journey's End",
+    backdrop: "/hero-backdrop-1.jpg",
+    href: "/anime/1",
+  },
+  {
+    id: "cyberpunk",
+    title: "Cyberpunk: Edgerunners",
+    subtitle: "Night City Anime Experience",
+    backdrop: "/hero-backdrop-2.jpg",
+    href: "/anime/search?q=cyberpunk",
+  },
+  {
+    id: "your-name",
+    title: "Kimi no Na wa (Your Name)",
+    subtitle: "Makoto Shinkai Classic",
+    backdrop: "/hero-backdrop-3.jpg",
+    href: "/anime/search?q=your%20name",
+  },
+];
+
+// ── Community Leaderboard Users ───────────────────────────────────────────────
+const LEADERBOARD_USERS = [
+  {
+    id: 1,
+    name: "LongLeo",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop",
+    allTime: 36676,
+    thisWeek: 36653,
+    allTimeFormatted: "36,676",
+    thisWeekFormatted: "36,653",
+  },
+  {
+    id: 2,
+    name: "Shei",
+    avatar: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=80&h=80&fit=crop",
+    allTime: 3187123,
+    thisWeek: 20203,
+    allTimeFormatted: "3,187,123",
+    thisWeekFormatted: "20,203",
+  },
+  {
+    id: 3,
+    name: "Uzui",
+    avatar: "https://images.unsplash.com/photo-1563089145-599997674d42?w=80&h=80&fit=crop",
+    allTime: 170746,
+    thisWeek: 14617,
+    allTimeFormatted: "170,746",
+    thisWeekFormatted: "14,617",
+  },
+  {
+    id: 4,
+    name: "Kreegarn",
+    initial: "K",
+    color: "#d97706",
+    allTime: 213513,
+    thisWeek: 9314,
+    allTimeFormatted: "213,513",
+    thisWeekFormatted: "9,314",
+  },
+  {
+    id: 5,
+    name: "Roman",
+    avatar: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=80&h=80&fit=crop",
+    allTime: 1111297,
+    thisWeek: 7377,
+    allTimeFormatted: "1,111,297",
+    thisWeekFormatted: "7,377",
+  },
+  {
+    id: 6,
+    name: "kutthroatsosa",
+    initial: "K",
+    color: "#7c3aed",
+    allTime: 34119,
+    thisWeek: 22973,
+    allTimeFormatted: "34,119",
+    thisWeekFormatted: "22,973",
+  },
+  {
+    id: 7,
+    name: "RuiZafon",
+    initial: "R",
+    color: "#b45309",
+    allTime: 2723622,
+    thisWeek: 17632,
+    allTimeFormatted: "2,723,622",
+    thisWeekFormatted: "17,632",
+  },
+  {
+    id: 8,
+    name: "爸爸",
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop",
+    allTime: 55736,
+    thisWeek: 10774,
+    allTimeFormatted: "55,736",
+    thisWeekFormatted: "10,774",
+  },
+  {
+    id: 9,
+    name: "c(ræ)zy a$$ bitches",
+    avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80&h=80&fit=crop",
+    allTime: 38394,
+    thisWeek: 8118,
+    allTimeFormatted: "38,394",
+    thisWeekFormatted: "8,118",
+  },
+  {
+    id: 10,
+    name: "cackalacky",
+    avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=80&h=80&fit=crop",
+    allTime: 6599,
+    thisWeek: 6286,
+    allTimeFormatted: "6,599",
+    thisWeekFormatted: "6,286",
+  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function cap(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
+function formatAnimeDate(anime) {
+  if (anime.start_date) {
+    try {
+      const d = new Date(anime.start_date);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      }
+    } catch {}
+  }
+  if (anime.season && anime.season_year) {
+    return `${cap(anime.season)} ${anime.season_year}`;
+  }
+  if (anime.season_year) return `${anime.season_year}`;
+  return "2024";
+}
 
 function AnimeImage({ src, alt, className }) {
   const [err, setErr] = useState(false);
-  const fallback = `https://placehold.co/225x320/1a1a2e/ffffff?text=${encodeURIComponent(alt?.slice(0,10)||"Anime")}`;
+  const fallback = `https://placehold.co/225x320/0f172a/ffffff?text=${encodeURIComponent(alt?.slice(0, 10) || "Anime")}`;
   return (
     <img
       src={err || !src ? fallback : src}
@@ -20,351 +161,397 @@ function AnimeImage({ src, alt, className }) {
   );
 }
 
-// ── Skeleton loaders ──────────────────────────────────────────────────────────
-function CardSkeleton() {
-  return (
-    <div className="hq-card hq-skeleton">
-      <div className="hq-card-img hq-skel-block" />
-      <div className="hq-card-body">
-        <div className="hq-skel-line hq-skel-line--wide" />
-        <div className="hq-skel-line" />
-      </div>
-    </div>
-  );
-}
-
-function RankSkeleton() {
-  return (
-    <div className="hq-rank-item hq-skeleton">
-      <div className="hq-rank-num hq-skel-block" style={{width:28,height:28}} />
-      <div className="hq-skel-block" style={{width:42,height:58,borderRadius:4}} />
-      <div style={{flex:1}}>
-        <div className="hq-skel-line hq-skel-line--wide" />
-        <div className="hq-skel-line" />
-      </div>
-    </div>
-  );
-}
-
-// ── Search bar ────────────────────────────────────────────────────────────────
-function SearchBar() {
-  const [q, setQ] = useState("");
-
-  const handleSearch = useCallback((e) => {
-    e.preventDefault();
-    if (q.trim()) {
-      window.location.href = `/anime/search?q=${encodeURIComponent(q.trim())}`;
-    }
-  }, [q]);
+// ── TMDB Circular Rating Badge ────────────────────────────────────────────────
+function CircularScore({ score }) {
+  if (!score || score === "N/A") return null;
+  const num = parseFloat(score);
+  const percent = Math.min(Math.round(num * 10), 100);
+  const radius = 15;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percent / 100) * circumference;
+  const strokeColor = percent >= 70 ? "#21d07a" : percent >= 50 ? "#d2d531" : "#db2360";
 
   return (
-    <form className="hq-search-form" onSubmit={handleSearch} role="search" aria-label="Search anime">
-      <div className="hq-search-inner">
-        <svg className="hq-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          id="homepage-search"
-          type="search"
-          className="hq-search-input"
-          placeholder="Search anime, manga, studios..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search anime"
-          autoComplete="off"
+    <div className="whq-circle-rating" title={`User Score: ${percent}%`}>
+      <svg className="whq-circle-svg" width="36" height="36" viewBox="0 0 36 36">
+        <circle
+          cx="18"
+          cy="18"
+          r={radius}
+          stroke="rgba(33, 208, 122, 0.2)"
+          strokeWidth="3"
+          fill="#081c22"
         />
-        <button type="submit" className="hq-search-btn" aria-label="Submit search">
-          Search
-        </button>
+        <circle
+          cx="18"
+          cy="18"
+          r={radius}
+          stroke={strokeColor}
+          strokeWidth="3"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          fill="none"
+          transform="rotate(-90 18 18)"
+        />
+      </svg>
+      <div className="whq-circle-text">
+        <span className="whq-circle-num">{percent}</span>
+        <span className="whq-circle-percent">%</span>
       </div>
-    </form>
+    </div>
   );
 }
 
-// ── Anime Card ────────────────────────────────────────────────────────────────
-function AnimeCard({ anime }) {
-  return (
-    <a href={`/anime/${anime.id}`} className="hq-card" aria-label={`View ${anime.title}`}>
-      <div className="hq-card-img-wrap">
-        <AnimeImage src={anime.img} alt={anime.title} className="hq-card-img" />
-        {anime.score && anime.score !== "N/A" && (
-          <span className="hq-card-score">
-            <svg viewBox="0 0 24 24" width="10" height="10" fill="#ffc107" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            {anime.score}
-          </span>
-        )}
-        {anime.type && <span className="hq-card-type">{anime.type}</span>}
-      </div>
-      <div className="hq-card-body">
-        <p className="hq-card-title">{anime.title}</p>
-        <p className="hq-card-meta">
-          {[anime.type, anime.eps !== "?" ? `${anime.eps} eps` : null].filter(Boolean).join(" · ")}
-        </p>
-      </div>
-    </a>
-  );
-}
+// ── Home Client Component ─────────────────────────────────────────────────────
+export default function HomeClient({ airing, topRated, popular, seasonal }) {
+  const [liveAiring, setLiveAiring] = useState(airing || []);
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [trendingTab, setTrendingTab] = useState("today");
+  const [popularTab, setPopularTab] = useState("streaming");
 
-// ── Rank Row ──────────────────────────────────────────────────────────────────
-function RankRow({ anime, showAired }) {
-  return (
-    <a href={`/anime/${anime.id}`} className="hq-rank-item" aria-label={`${anime.rank}. ${anime.title}`}>
-      <span className="hq-rank-num">{anime.rank}</span>
-      <AnimeImage src={anime.img} alt={anime.title} className="hq-rank-img" />
-      <div className="hq-rank-info">
-        <span className="hq-rank-title">{anime.title}</span>
-        <span className="hq-rank-meta">
-          {showAired && anime.airedString
-            ? anime.airedString
-            : `${anime.type || "TV"} · ${anime.eps !== "?" ? `${anime.eps} eps` : "? eps"}`}
-          {!showAired && anime.score !== "N/A" && (
-            <span className="hq-rank-score"> · ★ {anime.score}</span>
-          )}
-        </span>
-      </div>
-    </a>
-  );
-}
-
-// ── Section wrapper ───────────────────────────────────────────────────────────
-function Section({ title, href, linkLabel, children, id }) {
-  return (
-    <section className="hq-section" aria-labelledby={id} id={id}>
-      <div className="hq-section-head">
-        <h2 className="hq-section-title" id={id}>{title}</h2>
-        {href && (
-          <a href={href} className="hq-section-more" aria-label={`${linkLabel || "View more"} ${title}`}>
-            {linkLabel || "View All"} →
-          </a>
-        )}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-// ── Genre badge ───────────────────────────────────────────────────────────────
-const GENRE_ICONS = {
-  Action:"⚔️", Adventure:"🗺️", Comedy:"😂", Drama:"🎭", Fantasy:"✨",
-  Horror:"👻", Mystery:"🔍", Romance:"💕", "Sci-Fi":"🚀", "Slice of Life":"☕",
-  Sports:"⚽", Supernatural:"👁️", Thriller:"😱", Mecha:"🤖", Music:"🎵",
-  Psychological:"🧠", Ecchi:"🔞", Historical:"📜", Military:"🪖", School:"🏫",
-};
-
-function GenreBadge({ name }) {
-  const icon = GENRE_ICONS[name] || "🎬";
-  return (
-    <a
-      href={`/anime/search?q=${encodeURIComponent(name)}`}
-      className="hq-genre-badge"
-      aria-label={`Browse ${name} anime`}
-    >
-      <span aria-hidden="true">{icon}</span> {name}
-    </a>
-  );
-}
-
-// ── News card ─────────────────────────────────────────────────────────────────
-function NewsCard({ item }) {
-  return (
-    <a href={`/news/${item.id}`} className="hq-news-card" aria-label={`Read: ${item.title}`}>
-      {item.img && (
-        <div className="hq-news-img-wrap">
-          <img src={item.img} alt={item.title} className="hq-news-img" loading="lazy" />
-        </div>
-      )}
-      <div className="hq-news-body">
-        <p className="hq-news-title">{item.title}</p>
-        {item.snippet && <p className="hq-news-snippet">{item.snippet}</p>}
-        <span className="hq-news-date">{item.date}</span>
-      </div>
-    </a>
-  );
-}
-
-// ── Review card ───────────────────────────────────────────────────────────────
-function ReviewCard({ item }) {
-  return (
-    <a href={`/reviews/${item.id}`} className="hq-review-card" aria-label={`Read review: ${item.title}`}>
-      {item.img && (
-        <div className="hq-review-img-wrap">
-          <img src={item.img} alt={item.title} className="hq-review-img" loading="lazy" />
-        </div>
-      )}
-      <div className="hq-review-body">
-        <p className="hq-review-title">{item.title}</p>
-        {item.snippet && <p className="hq-review-snippet">{item.snippet}</p>}
-        <div className="hq-review-foot">
-          {item.score && (
-            <span className="hq-review-score">★ {typeof item.score === "number" ? item.score.toFixed(1) : item.score}</span>
-          )}
-          <span className="hq-review-date">{item.date}</span>
-        </div>
-      </div>
-    </a>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-export default function HomeClient({
-  airing, topRated, popular, seasonal, upcoming,
-  genres, news, reviews, currentSeason, currentYear,
-}) {
-  const [liveAiring, setLiveAiring] = useState(airing);
-  const [liveUpcoming, setLiveUpcoming] = useState(upcoming);
-  const [liveSeasonal, setLiveSeasonal] = useState(seasonal);
-  const [loading, setLoading] = useState(
-    !airing?.length || !seasonal?.length
-  );
-
+  // Client fallback for fresh airing data
   useEffect(() => {
-    if (airing?.length && seasonal?.length) return; // server data sufficient
-    setLoading(true);
+    if (airing?.length) return;
+    fetch(`${API_BASE}/api/anime?limit=50`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const all = json?.data || [];
+        const airingList = all
+          .filter((a) => ["currently airing", "releasing", "airing"].includes((a.status || "").toLowerCase()))
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .map((a, i) => ({
+            rank: i + 1,
+            id: a.id,
+            title: a.title_english || a.title,
+            score: a.score != null ? Number(a.score).toFixed(2) : "N/A",
+            img: a.image_url,
+            start_date: a.start_date,
+            season: a.season,
+            season_year: a.season_year,
+          }));
+        setLiveAiring(airingList);
+      })
+      .catch(() => {});
+  }, [airing]);
 
-    Promise.all([
-      fetch(`${API_BASE}/api/anime?limit=50`, { cache: "no-store" }).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/api/anime?limit=50&offset=50`, { cache: "no-store" }).then(r => r.ok ? r.json() : null),
-    ]).then(([p1, p2]) => {
-      const all = [...(p1?.data || []), ...(p2?.data || [])];
-      if (!airing?.length) {
-        setLiveAiring(
-          all.filter(a => ["currently airing","releasing","airing"].includes((a.status||"").toLowerCase()))
-             .sort((a,b)=>(b.score||0)-(a.score||0))
-             .slice(0,8)
-             .map((a,i) => ({rank:i+1,id:a.id,title:a.title_english||a.title,score:a.score!=null?Number(a.score).toFixed(2):"N/A",img:a.image_url,type:a.anime_type||"TV",eps:a.episodes??"?",members:a.members?Number(a.members).toLocaleString():"0"}))
-        );
-      }
-      if (!seasonal?.length) {
-        const month = new Date().getMonth();
-        const s = month<3?"winter":month<6?"spring":month<9?"summer":"fall";
-        const y = new Date().getFullYear();
-        setLiveSeasonal(
-          all.filter(a=>a.season&&a.season.toLowerCase()===s&&a.season_year===y)
-             .sort((a,b)=>(b.score||0)-(a.score||0))
-             .slice(0,12)
-             .map((a,i)=>({rank:i+1,id:a.id,title:a.title_english||a.title,score:a.score!=null?Number(a.score).toFixed(2):"N/A",img:a.image_url,type:a.anime_type||"TV",eps:a.episodes??"?"}))
-        );
-      }
-    }).catch(()=>{}).finally(()=>setLoading(false));
+  // Auto advance hero banner every 7s
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideIdx((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 7000);
+    return () => clearInterval(timer);
   }, []);
 
-  const seasonLabel = `${cap(currentSeason || "Fall")} ${currentYear || new Date().getFullYear()}`;
+  const prevSlide = () => {
+    setSlideIdx((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  };
+
+  const nextSlide = () => {
+    setSlideIdx((prev) => (prev + 1) % HERO_SLIDES.length);
+  };
+
+  const currentSlide = HERO_SLIDES[slideIdx];
+
+  // Tab data selection
+  const trendingItems = trendingTab === "today"
+    ? (liveAiring?.length ? liveAiring : airing || [])
+    : (popular?.length ? popular : topRated || []);
+
+  const popularItems = popularTab === "streaming"
+    ? (popular?.length ? popular : topRated || [])
+    : popularTab === "on-tv"
+    ? (liveAiring?.length ? liveAiring : airing || [])
+    : (topRated?.length ? topRated : popular || []);
 
   return (
-    <div className="hq-home">
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <header className="hq-hero" role="banner">
-        <div className="hq-hero-bg" aria-hidden="true" />
-        <div className="hq-hero-content">
-          <h1 className="hq-hero-title">
-            Discover Your Next
-            <span className="hq-hero-accent"> Anime Obsession</span>
-          </h1>
-          <p className="hq-hero-sub">
-            Browse thousands of anime, explore seasonal picks, read fan reviews,
-            and find your next favourite series.
-          </p>
-          <SearchBar />
-          <nav className="hq-hero-links" aria-label="Quick navigation">
-            <a href="/anime/top">🏆 Top Anime</a>
-            <a href="/anime/seasonal">📅 Seasonal</a>
-            <a href="/anime/search">🔍 Browse All</a>
-            <a href="/anime/reviews">⭐ Reviews</a>
-            <a href="/news">📰 News</a>
-          </nav>
+    <div className="whq-home">
+      {/* ── 1. TMDB-Style Hero Welcome Banner ────────────────────────────── */}
+      <section className="whq-hero-welcome" role="banner" aria-label="Welcome to WeebHQ">
+        <div className="whq-hero-backdrop-layer" aria-hidden="true">
+          {HERO_SLIDES.map((slide, i) => (
+            <div
+              key={slide.id}
+              className={`whq-hero-slide-bg ${i === slideIdx ? "active" : ""}`}
+              style={{ backgroundImage: `url(${slide.backdrop})` }}
+            />
+          ))}
+          <div className="whq-hero-color-overlay" />
         </div>
-      </header>
 
-      <main className="hq-main" id="main-content">
-
-        {/* ── Top two-column grid ────────────────────────────────────────── */}
-        <div className="hq-layout">
-
-          {/* LEFT: ranking sidebars */}
-          <aside className="hq-sidebar" aria-label="Ranking sidebars">
-            <Section title="Top Airing Anime" href="/anime/top" id="top-airing">
-              {loading && !liveAiring?.length
-                ? Array.from({length:5}).map((_,i)=><RankSkeleton key={i}/>)
-                : liveAiring?.length
-                  ? liveAiring.slice(0,8).map((a)=><RankRow key={a.id} anime={a} showAired={false}/>)
-                  : <p className="hq-empty">No airing anime available right now.</p>
-              }
-            </Section>
-
-            <Section title="Upcoming Anime" href="/anime/seasonal" id="upcoming">
-              {liveUpcoming === null
-                ? Array.from({length:5}).map((_,i)=><RankSkeleton key={i}/>)
-                : liveUpcoming?.length
-                  ? liveUpcoming.slice(0,8).map((a)=><RankRow key={a.id||a.rank} anime={a} showAired={true}/>)
-                  : <p className="hq-empty">No upcoming anime data available.</p>
-              }
-            </Section>
-          </aside>
-
-          {/* RIGHT: main content area */}
-          <div className="hq-content">
-
-            {/* Seasonal anime */}
-            <Section title={`${seasonLabel} Anime`} href="/anime/seasonal" id="seasonal">
-              <div className="hq-card-grid">
-                {loading && !liveSeasonal?.length
-                  ? Array.from({length:6}).map((_,i)=><CardSkeleton key={i}/>)
-                  : liveSeasonal?.length
-                    ? liveSeasonal.map(a=><AnimeCard key={a.id} anime={a}/>)
-                    : <p className="hq-empty">No {seasonLabel} anime found yet.</p>
-                }
-              </div>
-            </Section>
-
-            {/* Top Rated */}
-            {topRated?.length > 0 && (
-              <Section title="Top Rated All Time" href="/anime/top" id="top-rated">
-                <div className="hq-card-grid">
-                  {topRated.map(a=><AnimeCard key={a.id} anime={a}/>)}
-                </div>
-              </Section>
-            )}
-
-            {/* Most Popular */}
-            {popular?.length > 0 && (
-              <Section title="Most Popular" href="/anime/top" id="popular">
-                <div className="hq-card-grid hq-card-grid--wide">
-                  {popular.map(a=><AnimeCard key={a.id} anime={a}/>)}
-                </div>
-              </Section>
-            )}
+        <div className="whq-hero-container">
+          <div className="whq-hero-title-group">
+            <h1 className="whq-hero-main-title">Welcome.</h1>
+            <p className="whq-hero-main-sub">
+              Millions of anime, manga and characters to discover. Explore now.
+            </p>
           </div>
         </div>
 
-        {/* ── Genre Explorer ─────────────────────────────────────────────── */}
-        {genres?.length > 0 && (
-          <Section title="Browse by Genre" href="/anime/search" id="genres">
-            <nav className="hq-genre-grid" aria-label="Genre browser">
-              {genres.map(g=><GenreBadge key={g} name={g}/>)}
-            </nav>
-          </Section>
-        )}
+        <div className="whq-hero-bottom-bar">
+          <button
+            type="button"
+            className="whq-hero-nav-arrow prev"
+            onClick={prevSlide}
+            aria-label="Previous backdrop"
+            title="Previous backdrop"
+          >
+            &#8249;
+          </button>
+          <div className="whq-hero-current-slide-info">
+            <a
+              href={currentSlide.href}
+              className="whq-hero-slide-link"
+              title={`View ${currentSlide.title}`}
+            >
+              {currentSlide.title}
+            </a>
+          </div>
+          <button
+            type="button"
+            className="whq-hero-nav-arrow next"
+            onClick={nextSlide}
+            aria-label="Next backdrop"
+            title="Next backdrop"
+          >
+            &#8250;
+          </button>
+        </div>
+      </section>
 
-        {/* ── News & Reviews row ─────────────────────────────────────────── */}
-        <div className="hq-bottom-row">
-          {news?.length > 0 && (
-            <Section title="Anime & Manga News" href="/news" id="news">
-              <div className="hq-news-grid">
-                {news.slice(0,6).map(item=><NewsCard key={item.id} item={item}/>)}
-              </div>
-            </Section>
-          )}
-
-          {reviews?.length > 0 && (
-            <Section title="Latest Reviews" href="/anime/reviews" id="reviews">
-              <div className="hq-review-list">
-                {reviews.slice(0,4).map(item=><ReviewCard key={item.id} item={item}/>)}
-              </div>
-            </Section>
-          )}
+      {/* ── 2. TMDB-Style Trending Section ───────────────────────────────── */}
+      <section className="whq-trending-section" aria-labelledby="trending-heading">
+        <div className="whq-trending-header">
+          <h2 id="trending-heading" className="whq-trending-title">Trending</h2>
+          <div className="whq-trending-toggle" role="tablist" aria-label="Trending timeframe">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={trendingTab === "today"}
+              className={`whq-trending-toggle-btn ${trendingTab === "today" ? "active" : ""}`}
+              onClick={() => setTrendingTab("today")}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={trendingTab === "this-week"}
+              className={`whq-trending-toggle-btn ${trendingTab === "this-week" ? "active" : ""}`}
+              onClick={() => setTrendingTab("this-week")}
+            >
+              This Week
+            </button>
+          </div>
         </div>
 
-      </main>
+        <div className="whq-trending-scroller-wrap">
+          <div className="whq-trending-wave-bg" aria-hidden="true" />
+
+          <div className="whq-trending-scroller" tabIndex={0} role="region" aria-label="Trending anime list">
+            {trendingItems.slice(0, 16).map((item) => (
+              <article key={item.id} className="whq-trending-card">
+                <div className="whq-trending-poster-wrap">
+                  <a href={`/anime/${item.id}`} className="whq-trending-poster-link" tabIndex={-1}>
+                    <AnimeImage
+                      src={item.img}
+                      alt={item.title}
+                      className="whq-trending-poster-img"
+                    />
+                  </a>
+                  <button
+                    type="button"
+                    className="whq-card-more-btn"
+                    aria-label={`Options for ${item.title}`}
+                    title="Options"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = `/anime/${item.id}`;
+                    }}
+                  >
+                    •••
+                  </button>
+                  <CircularScore score={item.score} />
+                </div>
+
+                <div className="whq-trending-meta">
+                  <a href={`/anime/${item.id}`} className="whq-trending-card-title" title={item.title}>
+                    {item.title}
+                  </a>
+                  <p className="whq-trending-card-date">
+                    {formatAnimeDate(item)}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. TMDB-Style What's Popular Section ─────────────────────────── */}
+      <section className="whq-popular-section" aria-labelledby="popular-heading">
+        <div className="whq-trending-header">
+          <h2 id="popular-heading" className="whq-trending-title">What&apos;s Popular</h2>
+          <div className="whq-trending-toggle" role="tablist" aria-label="Popular media type">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={popularTab === "streaming"}
+              className={`whq-trending-toggle-btn ${popularTab === "streaming" ? "active" : ""}`}
+              onClick={() => setPopularTab("streaming")}
+            >
+              Streaming
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={popularTab === "on-tv"}
+              className={`whq-trending-toggle-btn ${popularTab === "on-tv" ? "active" : ""}`}
+              onClick={() => setPopularTab("on-tv")}
+            >
+              On TV
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={popularTab === "in-theaters"}
+              className={`whq-trending-toggle-btn ${popularTab === "in-theaters" ? "active" : ""}`}
+              onClick={() => setPopularTab("in-theaters")}
+            >
+              In Theaters
+            </button>
+          </div>
+        </div>
+
+        <div className="whq-trending-scroller-wrap">
+          <div className="whq-trending-scroller" tabIndex={0} role="region" aria-label="Popular anime list">
+            {popularItems.slice(0, 16).map((item) => (
+              <article key={item.id} className="whq-trending-card">
+                <div className="whq-trending-poster-wrap">
+                  <a href={`/anime/${item.id}`} className="whq-trending-poster-link" tabIndex={-1}>
+                    <AnimeImage
+                      src={item.img}
+                      alt={item.title}
+                      className="whq-trending-poster-img"
+                    />
+                  </a>
+                  <button
+                    type="button"
+                    className="whq-card-more-btn"
+                    aria-label={`Options for ${item.title}`}
+                    title="Options"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = `/anime/${item.id}`;
+                    }}
+                  >
+                    •••
+                  </button>
+                  <CircularScore score={item.score} />
+                </div>
+
+                <div className="whq-trending-meta">
+                  <a href={`/anime/${item.id}`} className="whq-trending-card-title" title={item.title}>
+                    {item.title}
+                  </a>
+                  <p className="whq-trending-card-date">
+                    {formatAnimeDate(item)}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. TMDB-Style Leaderboard Section ────────────────────────────── */}
+      <section className="whq-leaderboard-section" aria-labelledby="leaderboard-heading">
+        <div className="whq-leaderboard-header">
+          <h2 id="leaderboard-heading" className="whq-leaderboard-title">Leaderboard</h2>
+          <div className="whq-leaderboard-legend">
+            <span className="whq-legend-item all-time">
+              <span className="whq-legend-dot all-time" />
+              All Time Edits
+            </span>
+            <span className="whq-legend-item this-week">
+              <span className="whq-legend-dot this-week" />
+              Edits This Week
+            </span>
+          </div>
+        </div>
+
+        <div className="whq-leaderboard-grid">
+          <div className="whq-leaderboard-col">
+            {LEADERBOARD_USERS.slice(0, 5).map((user) => {
+              const allTimePercent = Math.max(8, Math.min(100, (user.allTime / 3200000) * 100));
+              const weekPercent = Math.max(8, Math.min(100, (user.thisWeek / 37000) * 100));
+              return (
+                <div key={user.id} className="whq-leaderboard-row">
+                  <div className="whq-leaderboard-avatar">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt={user.name} loading="lazy" />
+                    ) : (
+                      <span className="whq-avatar-initial" style={{ backgroundColor: user.color || "#00d2c4" }}>
+                        {user.initial}
+                      </span>
+                    )}
+                  </div>
+                  <div className="whq-leaderboard-data">
+                    <div className="whq-leaderboard-name">{user.name}</div>
+                    <div className="whq-leaderboard-bars">
+                      <div className="whq-bar-track">
+                        <div className="whq-bar-fill all-time" style={{ width: `${allTimePercent}%` }}>
+                          <span className="whq-bar-val">{user.allTimeFormatted}</span>
+                        </div>
+                      </div>
+                      <div className="whq-bar-track">
+                        <div className="whq-bar-fill this-week" style={{ width: `${weekPercent}%` }}>
+                          <span className="whq-bar-val">{user.thisWeekFormatted}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="whq-leaderboard-col">
+            {LEADERBOARD_USERS.slice(5, 10).map((user) => {
+              const allTimePercent = Math.max(8, Math.min(100, (user.allTime / 3200000) * 100));
+              const weekPercent = Math.max(8, Math.min(100, (user.thisWeek / 37000) * 100));
+              return (
+                <div key={user.id} className="whq-leaderboard-row">
+                  <div className="whq-leaderboard-avatar">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt={user.name} loading="lazy" />
+                    ) : (
+                      <span className="whq-avatar-initial" style={{ backgroundColor: user.color || "#00d2c4" }}>
+                        {user.initial}
+                      </span>
+                    )}
+                  </div>
+                  <div className="whq-leaderboard-data">
+                    <div className="whq-leaderboard-name">{user.name}</div>
+                    <div className="whq-leaderboard-bars">
+                      <div className="whq-bar-track">
+                        <div className="whq-bar-fill all-time" style={{ width: `${allTimePercent}%` }}>
+                          <span className="whq-bar-val">{user.allTimeFormatted}</span>
+                        </div>
+                      </div>
+                      <div className="whq-bar-track">
+                        <div className="whq-bar-fill this-week" style={{ width: `${weekPercent}%` }}>
+                          <span className="whq-bar-val">{user.thisWeekFormatted}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

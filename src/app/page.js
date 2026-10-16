@@ -20,13 +20,17 @@ async function safeFetch(url, ms = 8000) {
 }
 
 async function fetchAllAnime() {
-  const [page1, page2] = await Promise.all([
-    safeFetch(`${API_BASE}/api/anime?limit=50`),
+  const [page1, page2, page3, page4] = await Promise.all([
+    safeFetch(`${API_BASE}/api/anime?limit=50&offset=0`),
     safeFetch(`${API_BASE}/api/anime?limit=50&offset=50`),
+    safeFetch(`${API_BASE}/api/anime?limit=50&offset=100`),
+    safeFetch(`${API_BASE}/api/anime?limit=50&offset=150`),
   ]);
   const combined = [
     ...(page1?.data || []),
     ...(page2?.data || []),
+    ...(page3?.data || []),
+    ...(page4?.data || []),
   ];
   return combined;
 }
@@ -117,20 +121,20 @@ export default async function Home() {
       return s === "currently airing" || s === "releasing" || s === "airing";
     })
     .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 8)
+    .slice(0, 20)
     .map(shapeAnime);
 
   // ── Top Rated ────────────────────────────────────────────────────────────
   const topRated = [...allAnime]
     .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 8)
+    .slice(0, 20)
     .map(shapeAnime);
 
   // ── Most Popular ─────────────────────────────────────────────────────────
   const popular = [...allAnime]
     .filter((a) => a.members != null)
     .sort((a, b) => (b.members || 0) - (a.members || 0))
-    .slice(0, 6)
+    .slice(0, 20)
     .map(shapeAnime);
 
   // ── Current Season (Fall 2026) ────────────────────────────────────────────
@@ -147,7 +151,7 @@ export default async function Home() {
         a.season_year === currentYear
     )
     .sort((a, b) => (b.score || 0) - (a.score || 0))
-    .slice(0, 12)
+    .slice(0, 20)
     .map(shapeAnime);
 
   // ── Upcoming ─────────────────────────────────────────────────────────────
@@ -164,7 +168,7 @@ export default async function Home() {
       airedString: a.aired_string || null,
       status: a.status || "Not yet aired",
     }))
-    .slice(0, 8);
+    .slice(0, 20);
 
   // ── Genres from DB data ───────────────────────────────────────────────────
   const genreSet = new Map();

@@ -1,15 +1,14 @@
-import Link from 'next/link';
 import ClientAnimeLoader from './ClientAnimeLoader';
+import AnimeDetailView from '@/components/AnimeDetailView';
 
 export async function generateStaticParams() {
-  const ids = new Set(['1']); // Fallback included
+  const ids = new Set(['1']);
   
   try {
     let offset = 0;
     const limit = 50;
     let hasMore = true;
     
-    // Fetch up to 1000 records to pre-render
     while (hasMore && offset < 1000) {
       const res = await fetch(`https://weebhq-api.chamidubandara440.workers.dev/api/anime?limit=${limit}&offset=${offset}`);
       if (!res.ok) break;
@@ -22,9 +21,7 @@ export async function generateStaticParams() {
       } else {
         data.forEach(a => ids.add(a.id.toString()));
         offset += limit;
-        if (data.length < limit) {
-          hasMore = false;
-        }
+        if (data.length < limit) hasMore = false;
       }
     }
   } catch (e) {
@@ -34,105 +31,174 @@ export async function generateStaticParams() {
   return [...ids].map((id) => ({ id }));
 }
 
+async function fetchAnimeById(id) {
+  try {
+    const res = await fetch(`https://weebhq-api.chamidubandara440.workers.dev/api/anime/${id}`, {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (!data.error) return data;
+    }
+  } catch (e) {
+    console.error("Error fetching anime data for id:", id, e);
+  }
+  return null;
+}
+
+export async function generateMetadata({ params }) {
+  const { id } = await params;
+  const anime = await fetchAnimeById(id);
+
+  if (!anime) {
+    return {
+      title: 'Anime Details & Overview',
+      description: 'Explore comprehensive anime details, ratings, reviews, voice actors, and streaming guides on WeebHQ.',
+    };
+  }
+
+  const primaryTitle = anime.title_english || anime.title || `Anime #${id}`;
+  const year = anime.season_year || (anime.start_date ? anime.start_date.substring(0, 4) : '');
+  const yearSuffix = year ? ` (${year})` : '';
+  const pageTitle = `${primaryTitle}${yearSuffix} — Overview, Voice Cast, Trailers & Reviews`;
+
+  const synopsisClean = anime.synopsis
+    ? anime.synopsis.replace(/\r?\n+/g, ' ').replace(/\[Written by MAL Rewrite\]/gi, '').trim()
+    : '';
+
+  const genreNames = Array.isArray(anime.genres)
+    ? anime.genres.map(g => (typeof g === 'string' ? g : g.name)).filter(Boolean)
+    : [];
+  const genreText = genreNames.length > 0 ? ` [${genreNames.slice(0, 3).join(', ')}]` : '';
+  const scoreText = anime.score ? `★ ${anime.score}/10` : '';
+
+  const metaDesc = synopsisClean
+    ? `${scoreText ? scoreText + ' — ' : ''}${synopsisClean.slice(0, 145)}...`
+    : `Explore ${primaryTitle}${genreText} overview, ratings, voice cast, trailers, and reviews on WeebHQ.`;
+
+  const canonicalUrl = `https://weebhq.com/anime/${id}`;
+  const imageUrl = anime.banner_url || anime.image_url || 'https://weebhq.com/og-default.jpg';
+  const isMovie = (anime.anime_type || '').toLowerCase() === 'movie';
+
+  return {
+    title: pageTitle,
+    description: metaDesc,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: pageTitle,
+      description: metaDesc,
+      url: canonicalUrl,
+      siteName: 'WeebHQ',
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${primaryTitle} Poster`,
+        },
+      ],
+      type: isMovie ? 'video.movie' : 'video.tv_show',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: pageTitle,
+      description: metaDesc,
+      images: [imageUrl],
+    },
+    keywords: [
+      primaryTitle,
+      anime.title,
+      anime.title_japanese,
+      ...genreNames,
+      'anime',
+      'anime reviews',
+      'watch anime',
+      'anime voice actors',
+      'anime trailer',
+      'WeebHQ',
+    ].filter(Boolean),
+  };
+}
+
 export default async function AnimeDetail({ params }) {
   const { id } = await params;
-  
-  let anime = null;
-  try {
-    const res = await fetch('https://weebhq-api.chamidubandara440.workers.dev/api/anime/' + id, { next: { revalidate: 3600 } });
-    if (res.ok) {
-      anime = await res.json();
-      if (anime.error) anime = null;
-    }
-  } catch (e) {}
+  const anime = await fetchAnimeById(id);
 
   if (!anime) return <ClientAnimeLoader id={id} />;
 
-  const title = anime.title_english || anime.title;
-  const enTitle = anime.title_english || anime.title;
-  const jpTitle = anime.title_japanese || anime.title;
-  const synopsis = anime.synopsis || "No synopsis available.";
-  const img = anime.image_url;
-  const score = anime.score != null ? anime.score.toFixed(2) : "N/A";
-  const popularity = anime.popularity || "N/A";
-  const members = anime.members ? anime.members.toLocaleString() : "N/A";
-  const type = anime.anime_type || "TV";
-  const status = anime.status || "Unknown";
-  const episodes = anime.episodes || "Unknown";
-  const startDate = anime.start_date || "?";
-  const endDate = anime.end_date || "?";
+  const primaryTitle = anime.title_english || anime.title || `Anime #${id}`;
+  const isMovie = (anime.anime_type || '').toLowerCase() === 'movie';
+  const imageUrl = anime.banner_url || anime.image_url || 'https://weebhq.com/og-default.jpg';
+  const genreNames = Array.isArray(anime.genres)
+    ? anime.genres.map(g => (typeof g === 'string' ? g : g.name)).filter(Boolean)
+    : [];
+
+  const synopsisClean = anime.synopsis
+    ? anime.synopsis.replace(/\r?\n+/g, ' ').replace(/\[Written by MAL Rewrite\]/gi, '').trim()
+    : '';
+
+  // Breadcrumbs JSON-LD
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: 'https://weebhq.com',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Anime Catalog',
+        item: 'https://weebhq.com/anime/catalog',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: primaryTitle,
+        item: `https://weebhq.com/anime/${id}`,
+      },
+    ],
+  };
+
+  // TVSeries / Movie JSON-LD
+  const itemLd = {
+    '@context': 'https://schema.org',
+    '@type': isMovie ? 'Movie' : 'TVSeries',
+    name: primaryTitle,
+    alternateName: [anime.title, anime.title_japanese].filter(Boolean),
+    description: synopsisClean || `Overview and reviews for ${primaryTitle} on WeebHQ`,
+    image: imageUrl,
+    url: `https://weebhq.com/anime/${id}`,
+    datePublished: anime.start_date || undefined,
+    genre: genreNames.length > 0 ? genreNames : undefined,
+    ...(anime.score && parseFloat(anime.score) > 0 ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: anime.score.toString(),
+        bestRating: '10',
+        worstRating: '1',
+        ratingCount: (anime.members && anime.members > 0) ? anime.members : 100,
+      },
+    } : {}),
+    ...(anime.episodes ? { numberOfEpisodes: anime.episodes } : {}),
+  };
 
   return (
-    <div className="main-wrapper anime-detail-page">
-      <h1 className="anime-title-h1">
-        <strong>{title}</strong>
-        <span style={{fontSize: "12px", color: "#888", fontWeight: "normal", display: "block", marginTop: "2px"}}>{enTitle}</span>
-      </h1>
-      
-      <div className="anime-tabs">
-        <a href="#" className="active">Details</a>
-        <a href="#">Characters & Staff</a>
-        <a href="#">Episodes</a>
-        <a href="#">Videos</a>
-        <a href="#">Stats</a>
-        <a href="#">Reviews</a>
-        <a href="#">Recommendations</a>
-        <a href="#">News</a>
-      </div>
-
-      <div className="anime-detail-container">
-        {/* Left Sidebar */}
-        <div className="anime-left-col">
-          <img src={img} alt="Poster" className="anime-poster" />
-          <button className="add-list-btn notify-btn" style={{backgroundColor: "#2e51a2", borderColor: "#1d439b", marginBottom: "5px"}}>Notify me when it starts!</button>
-          
-          <div className="left-actions">
-            <a href="#">Add to My List</a>
-            <a href="#">Add to Favorites</a>
-          </div>
-          
-          <div className="anime-info-block">
-            <h2>Alternative Titles</h2>
-            <div className="info-item"><span className="dark-label">English:</span> {enTitle}</div>
-            <div className="info-item"><span className="dark-label">Japanese:</span> {jpTitle}</div>
-            
-            <h2>Information</h2>
-            <div className="info-item"><span className="dark-label">Type:</span> <a href="#">{type}</a></div>
-            <div className="info-item"><span className="dark-label">Episodes:</span> {episodes}</div>
-            <div className="info-item"><span className="dark-label">Status:</span> {status}</div>
-            <div className="info-item"><span className="dark-label">Aired:</span> {startDate} to {endDate}</div>
-            
-            <h2>Statistics</h2>
-            <div className="info-item"><span className="dark-label">Score:</span> {score}</div>
-            <div className="info-item"><span className="dark-label">Popularity:</span> #{popularity}</div>
-            <div className="info-item"><span className="dark-label">Members:</span> {members}</div>
-          </div>
-        </div>
-
-        {/* Right Main Content */}
-        <div className="anime-right-col">
-          <div className="stats-banner">
-            <div className="score-box">
-              <div className="score-label">SCORE</div>
-              <div className="score-value">{score}</div>
-              <div className="score-users">{members} users</div>
-            </div>
-            <div className="other-stats">
-              <div className="stat-row">
-                <span className="stat-item">Popularity <strong>#{popularity}</strong></span>
-                <span className="stat-item">Members <strong>{members}</strong></span>
-              </div>
-              <div className="stat-subrow">
-                <span>{type}</span>
-              </div>
-            </div>
-          </div>
-          
-          <h2>Synopsis</h2>
-          <div className="synopsis-text" style={{whiteSpace: 'pre-wrap'}} dangerouslySetInnerHTML={{ __html: synopsis }} />
-
-        </div>
-      </div>
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemLd) }}
+      />
+      <AnimeDetailView anime={anime} />
+    </>
   );
 }

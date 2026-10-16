@@ -1,16 +1,114 @@
 import "./globals.css";
-import ThemeToggle from "../components/ThemeToggle";
+import MainHeader from "../components/MainHeader";
 import Script from "next/script";
 
 export const metadata = {
-  title: "WeebHQ.com - Anime and Manga Database and Community",
-  description: "Welcome to WeebHQ, the ultimate anime and manga database.",
+  metadataBase: new URL("https://weebhq.com"),
+  title: {
+    default: "WeebHQ — Ultimate Anime & Manga Database, Reviews & Community",
+    template: "%s | WeebHQ",
+  },
+  description: "Explore top-rated anime, discover upcoming seasonal releases, watch high-definition trailers, read verified community reviews, and track your watchlists on WeebHQ.",
+  keywords: [
+    "anime",
+    "manga",
+    "anime database",
+    "seasonal anime",
+    "anime reviews",
+    "anime trailers",
+    "voice actors",
+    "seiyuu",
+    "top anime",
+    "anime streaming",
+    "WeebHQ"
+  ],
+  authors: [{ name: "WeebHQ Team", url: "https://weebhq.com" }],
+  creator: "WeebHQ",
+  publisher: "WeebHQ",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://weebhq.com",
+    siteName: "WeebHQ",
+    title: "WeebHQ — Ultimate Anime & Manga Database, Reviews & Community",
+    description: "Explore top-rated anime, discover upcoming seasonal releases, watch high-definition trailers, read verified community reviews, and track your watchlists on WeebHQ.",
+    images: [
+      {
+        url: "https://weebhq.com/og-default.jpg",
+        width: 1200,
+        height: 630,
+        alt: "WeebHQ - The Anime Database",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WeebHQ — Ultimate Anime & Manga Database",
+    description: "Explore top-rated anime, discover upcoming seasonal releases, watch trailers, and read community reviews on WeebHQ.",
+    images: ["https://weebhq.com/og-default.jpg"],
+    creator: "@weebhq",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({ children }) {
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "WeebHQ",
+    url: "https://weebhq.com",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: "https://weebhq.com/anime/search?q={search_term_string}",
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "WeebHQ",
+    url: "https://weebhq.com",
+    logo: "https://weebhq.com/favicon.ico",
+  };
+
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="dark" className="dark" style={{ colorScheme: "dark", backgroundColor: "#0b0f19" }}>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: 'try{document.documentElement.setAttribute("data-theme", "dark");document.documentElement.classList.add("dark");localStorage.setItem("theme", "dark");}catch(e){}',
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-T8M5N8X7FK"
           strategy="afterInteractive"
@@ -25,171 +123,86 @@ export default function RootLayout({ children }) {
         </Script>
       </head>
       <body>
-        <div className="header-wrapper">
-          <div className="header-container">
-            <a href="/" className="header-logo">WeebHQ.com</a>
-            <div className="header-nav" style={{display: "flex", alignItems: "center"}}>
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-        <div className="sub-menu">
-          <div className="sub-menu-container" style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
-            <div className="sub-menu-links" style={{display: "flex"}}>
-              <div className="dropdown">
-                <a href="#" className="dropbtn">Anime</a>
-                <div className="dropdown-content">
-                  <a href="/anime/search">Anime Search</a>
-                  <a href="/anime/top">Top Anime</a>
-                  <a href="/anime/seasonal">Seasonal Anime</a>
-                  <a href="/anime/videos">Videos</a>
-                  <a href="/anime/reviews">Reviews</a>
-                  <a href="/anime/recommendations">Recommendations</a>
-                  <a href="/anime/challenge">2026 Challenge</a>
-                  <a href="/anime/fal">Fantasy Anime League</a>
-                </div>
-              </div>
-              <div className="dropdown">
-                <a href="#" className="dropbtn">Manga</a>
-                <div className="dropdown-content">
-                  <a href="#">Manga Search</a>
-                  <a href="#">Top Manga</a>
-                  <a href="#">Adapted to Anime <span className="tag-new">New</span></a>
-                  <a href="#">Manga Store</a>
-                  <a href="#">Reviews</a>
-                  <a href="#">Recommendations</a>
-                  <a href="#">2026 Challenge</a>
-                </div>
-              </div>
-              <div className="dropdown">
-                <a href="#" className="dropbtn">Community</a>
-                <div className="dropdown-content">
-                  <a href="#">Forums</a>
-                  <a href="#">Clubs</a>
-                  <a href="#">Blogs</a>
-                  <a href="#">Users</a>
-                  <a href="#">Discord</a>
-                </div>
-              </div>
-              <a href="#" className="dropbtn">Industry</a>
-              <div className="dropdown">
-                <a href="#" className="dropbtn">Watch</a>
-                <div className="dropdown-content">
-                  <a href="#">Episode Videos</a>
-                  <a href="#">Anime Trailers</a>
-                </div>
-              </div>
-              <a href="#" className="dropbtn">Read</a>
-              <a href="#" className="dropbtn">Help</a>
-            </div>
-            
-            <div className="mal-search-bar">
-              <select className="mal-search-select">
-                <option value="all">All</option>
-                <option value="anime">Anime</option>
-                <option value="manga">Manga</option>
-              </select>
-              <input type="text" className="mal-search-input" placeholder="Search Anime, Manga, and more..." />
-              <button className="mal-search-btn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div className="welcome-banner">
-          <div className="welcome-banner-container">
-            Welcome to WeebHQ.com!
-          </div>
-        </div>
-        
+        <MainHeader />
         {children}
         
-        <footer className="footer">
-          <div className="footer-top">
-            <div className="footer-container footer-cols">
-              <div className="footer-col">
-                <div className="footer-col-header">
-                  <span>Top Anime</span>
-                  <a href="#">More</a>
+        {/* TMDB-Style WeebHQ Footer */}
+        <footer className="whq-footer" role="contentinfo">
+          <div className="whq-footer-container">
+            {/* Brand & Join Column */}
+            <div className="whq-footer-brand-col">
+              <a href="/" className="whq-footer-logo" aria-label="WeebHQ Home">
+                <div className="whq-footer-logo-box">
+                  <span className="whq-footer-logo-t">THE</span>
+                  <span className="whq-footer-logo-m">ANIME</span>
+                  <span className="whq-footer-logo-b">DB</span>
                 </div>
-                <ul className="footer-list">
-                  <li><span className="footer-rank">1</span> <a href="#">Sousou no Frieren</a></li>
-                  <li><span className="footer-rank">2</span> <a href="#">Re:Zero kara Hajimeru Isekai Seikatsu</a></li>
-                  <li><span className="footer-rank">3</span> <a href="#">Fullmetal Alchemist: Brotherhood</a></li>
-                  <li><span className="footer-rank">4</span> <a href="#">Steins;Gate</a></li>
-                  <li><span className="footer-rank">5</span> <a href="#">Steel Ball Run</a></li>
+              </a>
+              <a href="/anime/search" className="whq-footer-join-btn">
+                JOIN THE COMMUNITY
+              </a>
+            </div>
+
+            {/* Nav Columns */}
+            <div className="whq-footer-nav-grid">
+              <div className="whq-footer-nav-col">
+                <h3 className="whq-footer-col-title">THE BASICS</h3>
+                <ul className="whq-footer-links">
+                  <li><a href="/anime/search">About WeebHQ</a></li>
+                  <li><a href="/anime/search">Contact Us</a></li>
+                  <li><a href="/coming-soon?feature=api-docs">API Documentation</a></li>
+                  <li><a href="/coming-soon?feature=api-business">API for Business</a></li>
+                  <li><a href="/coming-soon?feature=system-status">System Status</a></li>
                 </ul>
               </div>
-              <div className="footer-col">
-                <div className="footer-col-header">
-                  <span>Top Airing Anime</span>
-                  <a href="#">More</a>
-                </div>
-                <ul className="footer-list">
-                  <li><span className="footer-rank">1</span> <a href="#">Steel Ball Run</a></li>
-                  <li><span className="footer-rank">2</span> <a href="#">Bleach: Sennen Kessen-hen</a></li>
-                  <li><span className="footer-rank">3</span> <a href="#">One Piece</a></li>
-                  <li><span className="footer-rank">4</span> <a href="#">Chiikawa</a></li>
-                  <li><span className="footer-rank">5</span> <a href="#">Seihantai na Kimi to Boku</a></li>
+
+              <div className="whq-footer-nav-col">
+                <h3 className="whq-footer-col-title">GET INVOLVED</h3>
+                <ul className="whq-footer-links">
+                  <li><a href="/coming-soon?feature=contribution-bible">Contribution Bible</a></li>
+                  <li><a href="/coming-soon?feature=add-anime">Add New Anime</a></li>
+                  <li><a href="/coming-soon?feature=add-manga">Add New Manga</a></li>
                 </ul>
               </div>
-              <div className="footer-col">
-                <div className="footer-col-header">
-                  <span>Most Popular Characters</span>
-                  <a href="#">More</a>
-                </div>
-                <ul className="footer-list">
-                  <li><span className="footer-rank">1</span> <a href="#">Lamperouge, Lelouch</a></li>
-                  <li><span className="footer-rank">2</span> <a href="#">Monkey D., Luffy</a></li>
-                  <li><span className="footer-rank">3</span> <a href="#">Levi</a></li>
-                  <li><span className="footer-rank">4</span> <a href="#">Lawliet, L</a></li>
-                  <li><span className="footer-rank">5</span> <a href="#">Roronoa, Zoro</a></li>
+
+              <div className="whq-footer-nav-col">
+                <h3 className="whq-footer-col-title">COMMUNITY</h3>
+                <ul className="whq-footer-links">
+                  <li><a href="/anime/search">Guidelines</a></li>
+                  <li><a href="/reviews">Discussions</a></li>
+                  <li><a href="/#leaderboard-heading">Leaderboard</a></li>
+                  <li><a href="/coming-soon?feature=support-forums">Support Forums</a></li>
+                </ul>
+              </div>
+
+              <div className="whq-footer-nav-col">
+                <h3 className="whq-footer-col-title">LEGAL</h3>
+                <ul className="whq-footer-links">
+                  <li><a href="/anime/search">Terms of Use</a></li>
+                  <li><a href="/anime/search">API Terms of Use</a></li>
+                  <li><a href="/anime/search">Privacy Policy</a></li>
+                  <li><a href="/anime/search">DMCA Policy</a></li>
                 </ul>
               </div>
             </div>
           </div>
-          
-          <div className="footer-bottom">
-            <div className="footer-container">
-              <div className="social-row-centered">
-                <div className="social-links">
-                  <span>Follow Us</span>
-                  <div className="social-icons">
-                    <a href="#" className="social-icon">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/></svg>
-                    </a>
-                    <a href="#" className="social-icon">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M21.231 2.227h-3.953l-6.398 7.378-5.121-7.378h-7.759l9.336 13.433-6.84 7.892h3.953l6.815-7.859 5.501 7.859h7.759l-9.845-14.167 6.552-7.158zm-5.068 18.232h-2.193l-10.05-14.475h2.274l10.048 14.475z"/></svg>
-                    </a>
-                    <a href="#" className="social-icon">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                    </a>
-                    <a href="#" className="social-icon">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>
-                    </a>
-                  </div>
-                </div>
+
+          {/* Footer Bottom Bar */}
+          <div className="whq-footer-bottom">
+            <div className="whq-footer-bottom-container">
+              <div className="whq-footer-privacy">
+                <span className="whq-privacy-badge">✓</span>
+                <a href="/anime/search">Your Privacy Choices</a>
               </div>
-              
-              <div className="footer-nav">
-                <a href="#">Home</a>
-                <a href="#">About</a>
-                <a href="#">Press Room</a>
-                <a href="#">Support</a>
-                <a href="#">Advertising</a>
-                <a href="#">FAQ</a>
-                <a href="#">Terms</a>
-                <a href="#">Privacy</a>
-                <a href="#">Privacy Settings</a>
-                <a href="#">Cookie</a>
-                <a href="#">Notice at Collection</a>
-                <a href="#">Sitemap</a>
+              <div className="whq-footer-lang-select">
+                <span className="whq-lang-globe">🌐</span>
+                <select aria-label="Language selector" defaultValue="en-US" className="whq-lang-dropdown">
+                  <option value="en-US">English (en-US)</option>
+                  <option value="ja-JP">日本語 (ja-JP)</option>
+                </select>
               </div>
-              
-              <div className="footer-copy">
-                WeebHQ.com is a property of WeebHQ Co., Ltd. ©2026 All Rights Reserved.<br/>
-                <span style={{fontSize: "10px", color: "#666"}}>This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.</span>
+              <div className="whq-footer-build-tag">
+                Build 2026.10 (WeebHQ Platform)
               </div>
             </div>
           </div>
