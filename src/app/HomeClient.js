@@ -206,34 +206,73 @@ function CircularScore({ score }) {
 // ── Home Client Component ─────────────────────────────────────────────────────
 export default function HomeClient({ airing, topRated, popular, seasonal }) {
   const [liveAiring, setLiveAiring] = useState(airing || []);
+  const [livePopular, setLivePopular] = useState(popular || []);
+  const [liveTopRated, setLiveTopRated] = useState(topRated || []);
+  const [liveTheaters, setLiveTheaters] = useState([]);
   const [slideIdx, setSlideIdx] = useState(0);
   const [trendingTab, setTrendingTab] = useState("today");
   const [popularTab, setPopularTab] = useState("streaming");
 
-  // Client fallback for fresh airing data
+  // Client hydration: ensure 16-20 items in every section
   useEffect(() => {
-    if (airing?.length) return;
-    fetch(`${API_BASE}/api/anime?limit=50`, { cache: "no-store" })
+    fetch(`${API_BASE}/api/anime?limit=100`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         const all = json?.data || [];
-        const airingList = all
-          .filter((a) => ["currently airing", "releasing", "airing"].includes((a.status || "").toLowerCase()))
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
-          .map((a, i) => ({
+        if (!all.length) return;
+
+        function shape(a, i) {
+          return {
             rank: i + 1,
             id: a.id,
             title: a.title_english || a.title,
             score: a.score != null ? Number(a.score).toFixed(2) : "N/A",
             img: a.image_url,
+            type: a.anime_type || "TV",
+            eps: a.episodes ?? "?",
+            members: a.members ? Number(a.members).toLocaleString() : "0",
             start_date: a.start_date,
+            status: a.status || "",
             season: a.season,
             season_year: a.season_year,
-          }));
-        setLiveAiring(airingList);
+          };
+        }
+
+        // Airing + backfill with top rated so Trending Today has a full 20-item scroller
+        const airingOnly = all
+          .filter((a) => ["currently airing", "releasing", "airing"].includes((a.status || "").toLowerCase()))
+          .sort((a, b) => (b.score || 0) - (a.score || 0));
+        const airingIds = new Set(airingOnly.map((a) => a.id));
+        const airingBackfill = all
+          .filter((a) => !airingIds.has(a.id))
+          .sort((a, b) => (b.score || 0) - (a.score || 0));
+        const trendingFull = [...airingOnly, ...airingBackfill].slice(0, 20).map(shape);
+        setLiveAiring(trendingFull);
+
+        // Most Popular
+        const popList = [...all]
+          .sort((a, b) => (b.members || 0) - (a.members || 0))
+          .slice(0, 20)
+          .map(shape);
+        setLivePopular(popList);
+
+        // Top Rated
+        const topList = [...all]
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 20)
+          .map(shape);
+        setLiveTopRated(topList);
+
+        // In Theaters (Movies)
+        const movies = all
+          .filter((a) => (a.anime_type || "").toLowerCase() === "movie")
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .slice(0, 20)
+          .map(shape);
+        setLiveTheaters(movies.length ? movies : topList);
       })
       .catch(() => {});
-  }, [airing]);
+  }, []);
 
   // Auto advance hero banner every 7s
   useEffect(() => {
@@ -253,16 +292,16 @@ export default function HomeClient({ airing, topRated, popular, seasonal }) {
 
   const currentSlide = HERO_SLIDES[slideIdx];
 
-  // Tab data selection
+  // Tab data selection (guarantees full items for every tab)
   const trendingItems = trendingTab === "today"
-    ? (liveAiring?.length ? liveAiring : airing || [])
-    : (popular?.length ? popular : topRated || []);
+    ? (liveAiring?.length ? liveAiring : airing?.length ? airing : livePopular)
+    : (liveTopRated?.length ? liveTopRated : topRated?.length ? topRated : livePopular);
 
   const popularItems = popularTab === "streaming"
-    ? (popular?.length ? popular : topRated || [])
+    ? (livePopular?.length ? livePopular : popular?.length ? popular : liveTopRated)
     : popularTab === "on-tv"
-    ? (liveAiring?.length ? liveAiring : airing || [])
-    : (topRated?.length ? topRated : popular || []);
+    ? (liveTopRated?.length ? liveTopRated : topRated?.length ? topRated : liveAiring)
+    : (liveTheaters?.length ? liveTheaters : livePopular);
 
   return (
     <div className="whq-home">
